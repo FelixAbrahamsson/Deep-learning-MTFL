@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import tensorflow as tf
 import pickle
+import platform
 
 class Dataset():
 
@@ -39,9 +40,9 @@ class Dataset():
       self.storeData(dataDir + self.testYDataFile, self.testX)
 
     print("Data loaded.")
-    # print(self.trainX[0])
-    # print(self.trainY[0])
-    # print(len(self.trainX[0]),",",len(self.trainX[0][0]))
+    #print(self.trainX[0])
+    #print(self.trainY[0])
+    #print(len(self.trainX[0]),",",len(self.trainX[0][0]))
 
 
   def readData(self, path):
@@ -50,7 +51,7 @@ class Dataset():
       data = pickle.load(fp)
       fp.close()
       return [data, True]
-    except FileNotFoundError:
+    except OSError:
       return [None, False]
 
   def storeData(self, path, data):
@@ -68,7 +69,10 @@ class Dataset():
     for line in lines:
       line = line.strip("\n ").split(" ")
 
-      imgName = line[0]
+      if platform.system() == 'Linux':
+        imgName = line[0].replace('\\', '/')
+      else:
+        imgName = line[0]
       if imgName == "":
         break
 
@@ -98,4 +102,3 @@ class Dataset():
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
 
 data = Dataset(dataFolder, "training.txt", "testing.txt")
-
