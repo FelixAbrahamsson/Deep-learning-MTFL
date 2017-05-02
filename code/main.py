@@ -7,37 +7,38 @@ import platform
 
 class Dataset():
 
-  def __init__(self, dataDir, trainTxt, testTxt, overwrite = False):
+  def __init__(self, imageDir, trainTxt, testTxt, overwrite = False):
     self.imgSize = 32
-    self.trainXDataFile = '/processed/trainX'
-    self.trainYDataFile = '/processed/trainY'
-    self.testXDataFile = '/processed/testX'
-    self.testYDataFile = '/processed/testY'
-    self.dataDir = dataDir
+    self.trainXDataFile = 'trainX'
+    self.trainYDataFile = 'trainY'
+    self.testXDataFile = 'testX'
+    self.testYDataFile = 'testY'
+    self.dataDir = imageDir + '/processed/'
+    self.imageDir = imageDir
 
     if not overwrite:
       print("Attempting to read training data from disk...")
-      self.trainX, successX = self.readData(self.dataDir + self.trainXDataFile)
-      self.trainY, successY = self.readData(self.dataDir + self.trainYDataFile)
+      self.trainX, successX = self.readData(self.imageDir + self.trainXDataFile)
+      self.trainY, successY = self.readData(self.imageDir + self.trainYDataFile)
 
     if overwrite or not successX or not successY:
       print("Training data not found on disk or overwrite selected, processing files...")
-      self.trainX, self.trainY = self.processData(self.dataDir, trainTxt)
+      self.trainX, self.trainY = self.processData(self.imageDir, trainTxt)
       print("Writing training data to disk...")
-      self.storeData(dataDir + self.trainXDataFile, self.trainX)
-      self.storeData(dataDir + self.trainYDataFile, self.trainY)
+      self.storeData(self.trainXDataFile, self.trainX)
+      self.storeData(self.trainYDataFile, self.trainY)
 
     if not overwrite:
       print("Attempting to read test data from disk...")
-      self.testX, successX = self.readData(self.dataDir + self.testXDataFile)
-      self.testX, successY = self.readData(self.dataDir + self.testYDataFile)
+      self.testX, successX = self.readData(self.imageDir + self.testXDataFile)
+      self.testX, successY = self.readData(self.imageDir + self.testYDataFile)
 
     if overwrite or not successX or not successY:
       print("Test data not found on disk or overwrite selected, processing files...")
-      self.testX, self.testX = self.processData(self.dataDir, testTxt)
+      self.testX, self.testX = self.processData(self.imageDir, testTxt)
       print("Writing test data to disk...")
-      self.storeData(dataDir + self.testXDataFile, self.testX)
-      self.storeData(dataDir + self.testYDataFile, self.testX)
+      self.storeData(self.testXDataFile, self.testX)
+      self.storeData(self.testYDataFile, self.testX)
 
     print("Data loaded.")
     #print(self.trainX[0])
@@ -54,8 +55,11 @@ class Dataset():
     except OSError:
       return [None, False]
 
-  def storeData(self, path, data):
-    with open(path, 'wb') as fp:
+  def storeData(self, file_name,  data):
+    if not os.path.exists(self.dataDir):
+      os.makedirs(self.dataDir)
+    
+    with open(self.dataDir + file_name, 'wb') as fp:
       pickle.dump(data, fp)
 
   def processData(self, folder, txtfile):
@@ -73,6 +77,7 @@ class Dataset():
         imgName = line[0].replace('\\', '/')
       else:
         imgName = line[0]
+
       if imgName == "":
         break
 
@@ -100,5 +105,8 @@ class Dataset():
 
 
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
+print(dataFolder)
 
 data = Dataset(dataFolder, "training.txt", "testing.txt")
+
+
