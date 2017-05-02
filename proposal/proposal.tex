@@ -1,0 +1,48 @@
+\documentclass[a4paper,10pt]{extarticle}
+\usepackage[swedish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[affil-it]{authblk}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{enumerate}
+\usepackage{gensymb}
+\usepackage{listings}
+%\usepackage[margin=1.5in]{geometry}
+
+\begin{document}
+\title{Project proposal for DD2424\\ \vspace{2mm}
+\textbf{Multi-task learning of facial landmarks and attributes with Tensorflow}
+}
+\author{Felix Abrahamsson, Joar Gruneau, Martin Zuber}
+\maketitle
+
+\section*{Project Description}
+We would like to investigate how multi-task learning might affect the performance of a deep ConvNet on the MTFL dataset \cite{MTFL}. The data set is annotated with four different labels (glasses, gender, smiling and head angle), as well as positions of 5 facial landmarks. Our idea is to first train two separate networks that predict facial landmarks and wearing/not wearing glasses. We then intend to train a single network for both tasks. Finally, we would like to compare the performances and see if the multi-task learner performs better. We believe that since the tasks have similarities, it could be that the multi-task learner outperforms the specialized networks. 
+
+To build train our networks we plan to use TensorFlow. At the moment we plan to write our code in Python.
+
+The paper that mostly inspired our project is \cite{zhang}. We have also drawn inspiration from \cite{Multiple} for multi-task learning and \cite{tensor} to see what is possible with TensorFlow. If we have time we want to investigate if the accuracy of the single network can be increased further by learning an additional task.
+
+We will measure the success of our multi-task learning network by comparing it to its corresponding single task network. This will indicate if the network has found similarities in the task to benefit learning.
+
+\begin{thebibliography}{9}
+\bibitem{MTFL}
+http://mmlab.ie.cuhk.edu.hk/projects/TCDCN.html
+
+\bibitem{zhang}
+Zhanpeng Zhang, Ping Luo, Chen Change Loy, and Xiaoou Tang, \textit{Facial Landmark Detection by Deep Multi-task Learning}, 2014
+
+\bibitem{Multiple}
+Abrar H. Abdulnabi, Gang Wang, Jiwen Lu and Kui Jia \textit{Multi-task CNN Model for Attribute Prediction}
+
+\bibitem{tensor}
+http://www.kdnuggets.com/2016/07/multi-task-learning-tensorflow-part-1.html
+
+\end{thebibliography}
+
+\end{document}
