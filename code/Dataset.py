@@ -78,8 +78,7 @@ class Dataset():
         img = img.resize((self.imgSize, self.imgSize), Image.ANTIALIAS)
       pixels = list(img.getdata())
       width, height = img.size
-      # X.append([pixels[i * width:(i + 1) * width] for i in range(height)])
-      pixelsArray = np.array(img.getdata())
+      pixelsArray = np.asarray([pixels[i * width:(i + 1) * width] for i in range(height)])
       pixelsArray = np.divide(pixelsArray, 255.0)
       X.append(pixelsArray)
       img.close()

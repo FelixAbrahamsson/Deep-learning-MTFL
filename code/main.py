@@ -5,4 +5,4 @@ from Dataset import Dataset
 
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
 data = Dataset(dataFolder, "training.txt", "testing.txt")
-print(data.trainX[0])
+print(data.trainX[0][0][0])
