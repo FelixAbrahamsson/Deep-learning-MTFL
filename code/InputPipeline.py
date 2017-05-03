@@ -44,8 +44,7 @@ class InputPipeline():
         images = tf.image.decode_jpeg(file_contents, channels=3)
         #This line is needed since tf.train.batch needs to know the size of the tensor which tf.image.decode_jpeg strangley dosen't produce
         #causes an error for images with other sizes
-        images.set_shape((250,250, 3))
-        print(images.get_shape())
+        images.set_shape((150,150, 3))
         landmarks = input_que[1]
         attributes = input_que[2]
         return images, landmarks, attributes
@@ -63,7 +62,7 @@ class DataReader():
         test_img, test_land, test_att = testPipe.read_from_disk(info_test, num_epochs)
         self.test = [test_img, test_land, test_att]
 
-    def read_batch_train(self, batch_size, train = True): #set to fals if tou want to read the test set
+    def read_batch(self, batch_size, train = True): #set to fals if tou want to read the test set
         #Produces an error whren number of epochs is reached
         min_after_dequeue = 10000
         capacity = min_after_dequeue + 3 * batch_size

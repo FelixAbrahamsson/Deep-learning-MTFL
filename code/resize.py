@@ -12,13 +12,14 @@ for info in ["training.txt", "testing.txt"]:
         line = line.strip("\n ").split(" ")
         imgName = line[0].replace("\\", "/")
         
-        if imgName[0:3] == "net":
-            continue
         if imgName == "":
             break
         
         img = Image.open(folder+imgName, mode='r')
         originalWidth = img.width
+        originalHeight = img.height
+        if (originalWidth != originalHeight):
+        	continue
         if(originalWidth != 150):
             img = img.resize((150, 150), Image.ANTIALIAS)
             pixels = list(img.getdata())
