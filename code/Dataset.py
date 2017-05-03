@@ -6,7 +6,7 @@ import pickle
 class Dataset():
 
   def __init__(self, imageDir, trainTxt, testTxt, overwrite = False):
-    self.imgSize = 32
+    self.imgSize = 150
     self.resizeImages = True
     self.trainXDataFile = 'trainX'
     self.trainYDataFile = 'trainY'
@@ -30,11 +30,11 @@ class Dataset():
     if not overwrite:
       print("Attempting to read test data from disk...")
       self.testX, successX = self.readData(self.dataDir + self.testXDataFile)
-      self.testX, successY = self.readData(self.dataDir + self.testYDataFile)
+      self.testY, successY = self.readData(self.dataDir + self.testYDataFile)
 
     if overwrite or not successX or not successY:
       print("Test data not found on disk or overwrite selected, processing files...")
-      self.testX, self.testX = self.processData(self.imageDir, testTxt)
+      self.testX, self.testY = self.processData(self.imageDir, testTxt)
       print("Writing test data to disk...")
       self.storeData(self.testXDataFile, self.testX)
       self.storeData(self.testYDataFile, self.testX)
@@ -70,10 +70,13 @@ class Dataset():
       line = line.strip("\n ").split(" ")
 
       imgName = line[0].replace("\\", "/")
+      if imgName[0:3] == "net":
+        continue
       if imgName == "":
         break
 
       img = Image.open(folder+imgName, mode='r')
+      originalWidth = img.width
       if self.resizeImages:
         img = img.resize((self.imgSize, self.imgSize), Image.ANTIALIAS)
       pixels = list(img.getdata())
@@ -86,7 +89,9 @@ class Dataset():
       coords = []
       for i in range(1,6):
         coords.append((float(line[i]),float(line[i+5])))
-      attributes = [int(line[i]) for i in range(11,15)]
+      coordsScaleFactor = float(self.imgSize) / float(originalWidth)
+      coords = np.multiply(np.array(coords), coordsScaleFactor)
+      attributes = np.array([int(line[i]) for i in range(11,15)])
       Y.append([coords,attributes])
 
       counter += 1
@@ -94,6 +99,7 @@ class Dataset():
         print(counter,"files read")
 
     f.close()
+    print(counter,"files read total.")
 
     return [X,Y]
 
