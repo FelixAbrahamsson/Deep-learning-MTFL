@@ -14,6 +14,7 @@ class Dataset():
     self.testYDataFile = 'testY'
     self.dataDir = imageDir + '/processed/'
     self.imageDir = imageDir
+    self.batchIndex = 0
 
     if not overwrite:
       print("Attempting to read training data from disk...")
@@ -40,6 +41,9 @@ class Dataset():
       self.storeData(self.testYDataFile, self.testX)
 
     print("Data loaded.")
+
+    self.trainSize = len(self.trainX)
+    self.testSize = len(self.trainY)
 
 
   def readData(self, path):
@@ -102,4 +106,19 @@ class Dataset():
     print(counter,"files read total.")
 
     return [X,Y]
+
+  def nextBatch(self, batchSize):
+    batch = [None,None] # batch[0] is X, batch[1] is Y
+
+    if self.batchIndex + batchSize >= self.trainSize:
+      loopIndex = self.batchIndex + batchSize - self.trainSize
+      batch[0] = self.trainX[self.batchIndex : self.trainSize] + self.trainX[0 : loopIndex]
+      batch[1] = self.trainY[self.batchIndex : self.trainSize] + self.trainY[0 : loopIndex]
+      self.batchIndex = loopIndex
+
+    else:
+      batch[0] = self.trainX[self.batchIndex : self.batchIndex + batchSize]
+      batch[1] = self.trainY[self.batchIndex : self.batchIndex + batchSize]
+      self.batchIndex = self.batchIndex + batchSize
+    return batch
 
