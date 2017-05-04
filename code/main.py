@@ -6,7 +6,7 @@ from singleTask import CNNSingle
 from Dataset import Dataset
 
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
-data = Dataset(dataFolder, "training.txt", "testing.txt")
+data = Dataset(dataFolder, "training.txt", "testing.txt", 2000)
 # data = DataReader(dataFolder)
 # print(data.trainX[0].shape)
 
@@ -14,5 +14,4 @@ data = Dataset(dataFolder, "training.txt", "testing.txt")
 network = CNNSingle(data)
 # network.debugNetwork()
 network.trainNetwork(100, 50)
-network.testNetwork(100)
-
+network.testNetwork()

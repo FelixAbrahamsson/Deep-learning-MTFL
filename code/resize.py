@@ -22,7 +22,7 @@ for info in ["training.txt", "testing.txt"]:
         originalHeight = img.height
         if (originalWidth != originalHeight):
             img.close()
-        	continue
+            continue
 
         if(originalWidth != 150):
             img = img.resize((150, 150), Image.ANTIALIAS)
@@ -58,6 +58,8 @@ for info in ["training.txt", "testing.txt"]:
         if counter % 1000 == 0:
             print(counter,"files resized")
     
+    f.close()
     fnew.close()
+    os.remove(folder+info)
     os.rename("tmp",folder+info)
     

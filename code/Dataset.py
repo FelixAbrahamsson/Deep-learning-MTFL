@@ -5,7 +5,7 @@ import pickle
 
 class Dataset():
 
-  def __init__(self, imageDir, trainTxt, testTxt, overwrite = False):
+  def __init__(self, imageDir, trainTxt, testTxt, maxTrainData, overwrite = False):
     self.imgSize = 150
     self.resizeImages = True
     self.trainXDataFile = 'trainX'
@@ -26,7 +26,7 @@ class Dataset():
 
     if overwrite or not successX or not successY1 or not successY2:
       print("Training data not found on disk or overwrite selected, processing files...")
-      self.trainX, self.trainY1, self.trainY2 = self.processData(self.imageDir, trainTxt)
+      self.trainX, self.trainY1, self.trainY2 = self.processData(self.imageDir, trainTxt, maxTrainData)
       print("Writing training data to disk...")
       self.storeData(self.trainXDataFile, self.trainX)
       self.storeData(self.trainY1DataFile, self.trainY1)
@@ -70,7 +70,7 @@ class Dataset():
     with open(self.dataDir + file_name, 'wb') as fp:
       pickle.dump(data, fp)
 
-  def processData(self, folder, txtfile):
+  def processData(self, folder, txtfile, maxData = 10000000):
 
     X = []
     Y1 = []
@@ -121,6 +121,9 @@ class Dataset():
 
       if counter % 1000 == 0:
         print(counter,"files read")
+
+      if counter % maxData == 0:
+        break
 
     f.close()
     print(counter,"files read total.")
