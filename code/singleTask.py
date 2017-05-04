@@ -28,8 +28,9 @@ class CNNSingle():
 
   def createCompGraph(self):
 
-    self.x = tf.placeholder(tf.float32, shape=[None]+list(
-      self.data.trainX[0].shape))
+    # self.x = tf.placeholder(tf.float32, shape=[None]+list(
+    #   self.data.trainX[0].shape))
+    self.x = tf.placeholder(tf.float32, shape=[None,150,150,3])
     # y_ are the coordinates of facial landmarks
     self.y_ = tf.placeholder(tf.float32, shape=[None, 5, 2]) 
 
@@ -76,24 +77,24 @@ class CNNSingle():
     self.correct_prediction = tf.less(self.mean_error, 0.1)
     self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
 
-  def trainNetwork(self, nrEpochs, batchSize):
+  def trainNetwork(self, nrSteps, batchSize):
 
     sess = tf.InteractiveSession()
 
     sess.run(tf.global_variables_initializer())
-    for i in range(nrEpochs):
+    for i in range(nrSteps):
       batch = self.data.nextBatch(batchSize)
-      if i%(math.ceil((nrEpochs/10))) == 0:
+      if i%(math.ceil((nrSteps/10))) == 0:
         train_accuracy = self.accuracy.eval(feed_dict={
             self.x:batch[0], self.y_: batch[1], self.keep_prob: 1.0})
         print("Step %d, training accuracy %g"%(i, train_accuracy))
       self.train_step.run(feed_dict={self.x: batch[0], self.y_: batch[1],
        self.keep_prob: 0.5})
-    print("Done training!")
+    print("Training finished.")
 
 
-  def testNetwork(self):
-    batch = self.data.getTestdata()
+  def testNetwork(self, n):
+    batch = self.data.getTestdata(n)
     train_accuracy = self.accuracy.eval(feed_dict={
             self.x:batch[0], self.y_: batch[1], self.keep_prob: 1.0})
     print(train_accuracy)

@@ -96,6 +96,11 @@ class Dataset():
       width, height = img.size
       pixelsArray = np.asarray([pixels[i * width:(i + 1) * width] for i in range(height)])
       pixelsArray = np.divide(pixelsArray, 255.0)
+      if len(pixelsArray.shape) != 3:
+        # Not RGB image
+        img.close()
+        counter += 1
+        continue
       X.append(pixelsArray)
       img.close()
 
@@ -112,7 +117,6 @@ class Dataset():
 
       if counter % 1000 == 0:
         print(counter,"files read")
-        break
 
     f.close()
     print(counter,"files read total.")
@@ -136,10 +140,10 @@ class Dataset():
       self.batchIndex = self.batchIndex + batchSize
     return batch
 
-  def getTestdata(self):
+  def getTestdata(self, n):
 
     batch = [None,None,None]
-    batch[0] = self.testX[0:1000]
-    batch[1] = self.testY1[0:1000]
-    batch[2] = self.testY2[0:1000]
+    batch[0] = self.testX[0:n]
+    batch[1] = self.testY1[0:n]
+    batch[2] = self.testY2[0:n]
     return batch

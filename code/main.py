@@ -10,8 +10,9 @@ data = Dataset(dataFolder, "training.txt", "testing.txt")
 # data = DataReader(dataFolder)
 # print(data.trainX[0].shape)
 
+
 network = CNNSingle(data)
 # network.debugNetwork()
 network.trainNetwork(100, 50)
-# network.testNetwork()
+network.testNetwork(100)
 
