@@ -10,8 +10,8 @@ with tf.Session() as sess:
     sess.run(init_op)
 
     dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
-    data = DataReader(dataFolder, "traininglfw.txt", "testing.txt", num_epochs = None)
-    images, landmarks, attributes = data.read_batch_train(10)
+    data = DataReader(dataFolder, "training.txt", "testing.txt", num_epochs = None)
+    images, landmarks, attributes = data.read_batch(10)
 
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
