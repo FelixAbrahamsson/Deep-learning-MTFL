@@ -83,15 +83,20 @@ class Dataset():
       line = line.strip("\n ").split(" ")
 
       imgName = line[0].replace("\\", "/")
-      if imgName[0:3] == "net":
-        continue
+
       if imgName == "":
         break
 
       img = Image.open(folder+imgName, mode='r')
       originalWidth = img.width
+      originalHeight = img.height
+      if (originalHeight != originalWidth):
+        img.close()
+        continue
+
       if self.resizeImages:
         img = img.resize((self.imgSize, self.imgSize), Image.ANTIALIAS)
+
       pixels = list(img.getdata())
       width, height = img.size
       pixelsArray = np.asarray([pixels[i * width:(i + 1) * width] for i in range(height)])
@@ -99,7 +104,6 @@ class Dataset():
       if len(pixelsArray.shape) != 3:
         # Not RGB image
         img.close()
-        counter += 1
         continue
       X.append(pixelsArray)
       img.close()

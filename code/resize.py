@@ -2,6 +2,8 @@ from PIL import Image
 import os
 import numpy as np
 folder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL") + "/"
+
+
 counter = 0
 for info in ["training.txt", "testing.txt"]:
     f = open(folder+info,"r")
@@ -19,11 +21,21 @@ for info in ["training.txt", "testing.txt"]:
         originalWidth = img.width
         originalHeight = img.height
         if (originalWidth != originalHeight):
+            img.close()
         	continue
+
         if(originalWidth != 150):
             img = img.resize((150, 150), Image.ANTIALIAS)
+
+            # Check if img is RGB or greyscale
             pixels = list(img.getdata())
             width, height = img.size
+            pixelsArray = np.asarray([pixels[i * width:(i + 1) * width] for i in range(height)])
+            if len(pixelsArray.shape) != 3:
+                # img is greyscale, skip it
+                img.close()
+                continue
+
             img.save(folder+imgName)
             img.close()
 
