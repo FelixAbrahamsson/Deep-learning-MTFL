@@ -3,17 +3,12 @@ import numpy as np
 import tensorflow as tf
 from InputPipeline import DataReader
 from singleTask import CNNSingle
-from Dataset import Dataset
 
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
 data = DataReader(dataFolder, "training.txt", "testing.txt")
-#data = Dataset(dataFolder, "training.txt", "testing.txt")
-# data = DataReader(dataFolder)
-# print(data.trainX[0].shape)
 
-
-network = CNNSingle(data, 100) #batch size
+network = CNNSingle(data, 50, -1) #batch size, landmark
 # network.debugNetwork()
-sess = network.trainNetwork(20) # epochs
+sess = network.trainNetwork(1, 1.0) # epochs, keep_prob
 network.testNetwork(sess)
 
