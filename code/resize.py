@@ -2,7 +2,7 @@ from PIL import Image
 import os
 import numpy as np
 folder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL") + "/"
-
+finalSize = 150
 
 counter = 0
 for info in ["training.txt", "testing.txt"]:
@@ -24,8 +24,8 @@ for info in ["training.txt", "testing.txt"]:
             img.close()
             continue
 
-        if(originalWidth != 150):
-            img = img.resize((150, 150), Image.ANTIALIAS)
+        if(originalWidth != finalSize):
+            img = img.resize((finalSize, finalSize), Image.ANTIALIAS)
 
             # Check if img is RGB or greyscale
             pixels = list(img.getdata())
@@ -40,7 +40,7 @@ for info in ["training.txt", "testing.txt"]:
             img.close()
 
         coords = []
-        coordsScaleFactor = float(150) / float(originalWidth)
+        coordsScaleFactor = float(finalSize) / float(originalWidth)
         
         for i in range(1,11):
             coords.append(float(line[i])*coordsScaleFactor)
