@@ -11,7 +11,7 @@ for idx in range(len(infoFiles)):
     f = open(folder+info,"r")
     fnew = open("tmp", 'a')
     if idx == 0:
-        fnew_augmented = open("aug_"+info,'a')
+        fnew_augmented = open(folder+"aug_"+info,'a')
     lines = f.readlines()
     for line in lines:
         
