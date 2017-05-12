@@ -9,7 +9,9 @@ infoFiles = ["training.txt", "testing.txt"]
 for idx in range(len(infoFiles)):
     info = infoFiles[idx]
     f = open(folder+info,"r")
-    fnew=open("tmp", 'a')
+    fnew = open("tmp", 'a')
+    if idx == 0:
+        fnew_augmented = open("aug_"+info,'a')
     lines = f.readlines()
     for line in lines:
         
@@ -53,7 +55,7 @@ for idx in range(len(infoFiles)):
         for coord in coords:
             fnew.write(" " + str(coord))
         for attribute in attributes:
-            fnew.write(" " + str(attribute - 1))
+            fnew.write(" " + str(attribute - 1)) # Subtract 1 for better indexing
         fnew.write("\n")
 
         # Mirror the image if it's not part of test data
@@ -84,13 +86,21 @@ for idx in range(len(infoFiles)):
             attributesTransp = np.array([int(line[i]) for i in range(11,15)])
             attributesTransp[3] = 6 - attributesTransp[3] # Translate head pose
 
-            # Write mirrored img to file
-            fnew.write(imgNameTransp)
+            # Write resized old img to augmented file
+            fnew_augmented.write(imgName)
+            for coord in coords:
+                fnew_augmented.write(" " + str(coord))
+            for attribute in attributes:
+                fnew_augmented.write(" " + str(attribute - 1))
+            fnew_augmented.write("\n")
+
+            # Write mirrored img to augmented file
+            fnew_augmented.write(imgNameTransp)
             for coord in coordsTransp:
-                fnew.write(" " + str(coord))
+                fnew_augmented.write(" " + str(coord))
             for attribute in attributesTransp:
-                fnew.write(" " + str(attribute - 1)) # Subtract 1 for better indexing
-            fnew.write("\n")
+                fnew_augmented.write(" " + str(attribute - 1))
+            fnew_augmented.write("\n")
 
         # Save resized img
         img.save(folder+imgName)
@@ -102,6 +112,8 @@ for idx in range(len(infoFiles)):
     
     f.close()
     fnew.close()
+    if idx == 0:
+        fnew_augmented.close()
     os.remove(folder+info)
     os.rename("tmp",folder+info)
     
