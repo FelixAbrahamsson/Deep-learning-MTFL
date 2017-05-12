@@ -141,8 +141,8 @@ class CNNSingle():
             print("Epoch: " + str(epoch))
             print("Avg acc on training set: " + str(np.round(avg_acc,6)))
             print("Smooth loss " + str(smooth_loss))
-            # if epoch >= 20:
-            #     self.testNetwork(sess)
+            if epoch >= 10:
+                self.testNetwork(sess)
         print("Training finished.")
         return sess
 
@@ -172,7 +172,11 @@ class CNNSingle():
             im = Image.new("RGB", (150,150))
             im.putdata(imgData)
             draw = ImageDraw.Draw(im)
-            for coords in feature_vectors[i]:
+            if self.landmark == -1:
+                y_ = feature_vectors[i]
+            else:
+                y_ = [feature_vectors[i]]
+            for coords in y_:
                 FL_x = coords[0]
                 FL_y = coords[1]
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
