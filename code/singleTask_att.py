@@ -57,7 +57,7 @@ class CNNSingleAtt():
             # Choose between testing and training
             self.x = tf.where(self.training, self.train_x, self.test_x)
             self.y = tf.where(self.training, self.train_y_, self.test_y_)
-            self.y_ = tf.to_float(tf.add(tf.multiply(self.y, 20), 10), name='ToFloat')
+            self.y_ = tf.to_float(tf.add(self.y, 1), name='ToFloat')
             self.land = tf.where(self.training, self.train_land, self.test_land)
 
             self.W_conv1 = self.weight_variable([5, 5, 3, conv1filters])
@@ -85,25 +85,30 @@ class CNNSingleAtt():
             self.W_fc2 = self.weight_variable([1024, output_size])
             self.b_fc2 = self.bias_variable([output_size])
 
-            self.y_conv = tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2
+            self.y_conv = tf.nn.softmax(tf.reduce_sum(tf.transpose( tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2), axis=0))
             #self.y_conv = tf.Print(self.y_conv, [self.y_conv])
 
         with tf.variable_scope("Loss"):
-            self.l2diffs = tf.square(tf.subtract([self.y_[:,attribute]], tf.reduce_sum(tf.transpose(self.y_conv),axis=0)))
-            self.loss = tf.reduce_sum(self.l2diffs, axis=0)
+            #self.l2diffs = tf.square(tf.subtract([self.y_[:,attribute]], ))
+            self.loss = tf.reduce_mean(-tf.reduce_sum(self.y_[:, attribute] * tf.log( self.y_conv )))
+
             self.ex1 = self.y_[:,attribute]
-            self.ex2 =  tf.reduce_sum(tf.transpose(self.y_conv),axis=0)[:]
+            self.ex2 =  self.y_conv[:]
 
         with tf.variable_scope("Accuracy"):
-            self.accuracy = tf.constant(0)
-            for i in range(self.batchSize):
-                self.condition1 = tf.logical_and( tf.equal(self.y_[i, attribute],10) ,tf.greater(self.y_conv[i], 0))    
-                self.condition2 = tf.logical_and(tf.equal(self.y_[i, attribute],-10), tf.less_equal(self.y_conv[i], 0))
-                self.cond = tf.logical_or(self.condition1, self.condition2)
-                self.incr = tf.cast(self.cond, tf.int32)
-                self.accuracy = tf.add(self.incr, self.accuracy)
+            #self.accuracy = tf.constant(0)
+            self.correct_prediction = tf.equal(tf.argmax(self.y_conv) , tf.argmax(self.y_[:,attribute]) )
+            self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
+            #for i in range(self.batchSize):
+                
+
+                #self.condition1 = tf.logical_and( tf.equal(self.y_[i, attribute],10) ,tf.greater(self.y_conv[i], 0))    
+                #self.condition2 = tf.logical_and(tf.equal(self.y_[i, attribute],-10), tf.less_equal(self.y_conv[i], 0))
+                #self.cond = tf.logical_or(self.condition1, self.condition2)
+                #self.incr = tf.cast(self.cond, tf.int32)
+                #self.accuracy = tf.add(self.incr, self.accuracy)
             
-            self.accuracy = tf.divide(self.accuracy, self.batchSize)
+            #self.accuracy = tf.divide(self.accuracy, self.batchSize)
         
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
 
@@ -118,7 +123,7 @@ class CNNSingleAtt():
             for i in range(steps):
                 _ = sess.run([self.train_step],feed_dict={self.keep_prob:keep_prob, self.training:True})
             loss, acc, ex1, ex2 = sess.run([self.loss, self.accuracy, self.ex1, self.ex2], feed_dict={self.keep_prob:1.0, self.training:True})
-            #print("Examples: \n"+str(ex1)+"\n"+str(ex2))
+            print("Examples: \n"+str(ex1)+"\n"+str(ex2))
             print("Epoch: " + str(epoch))
             print("Accuracy on training set: " + str(acc))
             print("Loss " + str(loss))
