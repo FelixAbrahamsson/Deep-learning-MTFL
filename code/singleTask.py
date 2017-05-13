@@ -15,9 +15,19 @@ class CNNSingle():
         self.data = data
         self.landmark = landmark
         self.batchSize = batchSize
-        self.createCompGraph()
         self.shape = [150, 150, 3]
-    
+        # landmark values:
+        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
+        self.f_size = 5 # receptive field size
+        self.conv1filters = 16 # nr of output channels from conv layer 1
+        self.conv2filters = self.conv1filters*2 # nr of output channels from conv layer 2
+        self.fc1size = 1024
+
+        if self.landmark == -1:
+            self.output_size = 10
+        else:
+            self.output_size = 2
+        self.createCompGraph()
 
     def weight_variable(self, shape):
         initial = tf.truncated_normal(shape, stddev=0.1)
@@ -34,136 +44,126 @@ class CNNSingle():
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME')
 
+    def feed_forward(self, x, y):
+        h_conv1 = tf.nn.relu(self.conv2d(x, self.W_conv1)+self.b_conv1)
+        h_pool1 = self.max_pool_2x2(h_conv1)
+        
+        h_conv2 = tf.nn.relu(self.conv2d(h_pool1, self.W_conv2) + self.b_conv2)
+        h_pool2 = self.max_pool_2x2(h_conv2)
+        h_pool2_flat = tf.reshape(h_pool2, [-1, 38 * 38 * self.conv2filters])
+        h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, self.W_fc1)+self.b_fc1)
 
-    def createCompGraph(self):
-        # landmark values:
-        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
-
-        f_size = 5 # receptive field size
-        conv1filters = 16 # nr of output channels from conv layer 1
-        conv2filters = conv1filters*2 # nr of output channels from conv layer 2
-        fc1size = 1024
+        h_fc1_drop = tf.nn.dropout(h_fc1, self.keep_prob)
+        y_conv = tf.matmul(h_fc1_drop, self.W_fc2) + self.b_fc2
 
         if self.landmark == -1:
-            output_size = 10
+            # If y_ is [5,2] l2diffs becomes a 5x1 vector with the vector distances
+            y_vectors = tf.reshape(y_conv, [-1,5,2])
+            l2diffs = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
+                y, y_vectors)),reduction_indices=2))
+            loss = tf.reduce_mean(tf.reduce_sum(l2diffs,
+                reduction_indices=1))
         else:
-            output_size = 2
+            # l2diff will just be scalar values in this case
+            y_vectors = y_conv
+            l2diffs = tf.transpose(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
+                [y[:,self.landmark]], y_vectors)),reduction_indices=2)))
+            loss = tf.reduce_mean(tf.squeeze(l2diffs))
+        return l2diffs, y_vectors, loss
 
-        with tf.variable_scope("Input"):
-            self.training = tf.placeholder(tf.bool)
-            self.train_x, self.train_y_, self.train_attr = self.data.read_batch(
-                self.batchSize, True)
-            self.test_x, self.test_y_, self.test_attr = self.data.read_batch(
-                self.batchSize, False)
+    def calc_accuracy(self, y, l2diffs):
+        interocular_distance = tf.sqrt(tf.reduce_sum(tf.square(
+          tf.subtract(y[:,0], y[:,1])),reduction_indices=1))
+        # mean error is the l2 differences normalized by the interocular distance
+        mean_error = l2diffs / tf.transpose([interocular_distance])
+        # correct prediction if mean error < 10 %
+        correct_prediction = tf.less(mean_error, 0.1)
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, 
+        tf.float32),reduction_indices=0)
+        return accuracy
 
-        with tf.variable_scope("Net"):
+    def initiate_net(self):
+        # We have 3 input channels, rgb
+        self.keep_prob = tf.placeholder(tf.float32)
+        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, self.conv1filters])
+        self.b_conv1 = self.bias_variable([self.conv1filters])
 
-            # Choose between testing and training
-            self.x = tf.where(self.training, self.train_x, self.test_x)
-            self.y_ = tf.where(self.training, self.train_y_, self.test_y_)
-            self.attr = tf.where(self.training, self.train_attr, self.test_attr)
+        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, self.conv2filters])
+        self.b_conv2 = self.bias_variable([self.conv2filters])
 
-            # We have 3 input channels, rgb
-            self.W_conv1 = self.weight_variable([f_size, f_size, 3, conv1filters])
-            self.b_conv1 = self.bias_variable([conv1filters])
+        # 38x38 = 150/2/2 x 150/2/2
+        self.W_fc1 = self.weight_variable([38 * 38 * self.conv2filters, self.fc1size])
+        self.b_fc1 = self.bias_variable([self.fc1size])
 
-            self.h_conv1 = tf.nn.relu(self.conv2d(self.x, self.W_conv1)+self.b_conv1)
-            self.h_pool1 = self.max_pool_2x2(self.h_conv1)
+        self.W_fc2 = self.weight_variable([self.fc1size, self.output_size])
+        self.b_fc2 = self.bias_variable([self.output_size])
 
-            self.W_conv2 = self.weight_variable([f_size, f_size, conv1filters, conv2filters])
-            self.b_conv2 = self.bias_variable([conv2filters])
+    def createCompGraph(self):     
+        self.initiate_net()    
 
-            self.h_conv2 = tf.nn.relu(self.conv2d(self.h_pool1,
-             self.W_conv2) + self.b_conv2)
-            self.h_pool2 = self.max_pool_2x2(self.h_conv2)
-            
-            # 38x38 = 150/2/2 x 150/2/2
-            self.W_fc1 = self.weight_variable([38 * 38 * conv2filters, fc1size])
-            self.b_fc1 = self.bias_variable([fc1size])
+        self.train_x, self.train_y, self.train_attr = self.data.read_batch(self.batchSize, 0)
+        self.train_l2diffs, self.train_y_vectors, self.train_loss =  self.feed_forward(self.train_x, self.train_y)
+        self.train_acc = self.calc_accuracy(self.train_y, self.train_l2diffs)
 
-            self.h_pool2_flat = tf.reshape(self.h_pool2, [-1, 38 * 38 * conv2filters])
-            self.h_fc1 = tf.nn.relu(tf.matmul(self.h_pool2_flat, self.W_fc1)+self.b_fc1)
+        self.vall_x, self.vall_y, self.vall_attr = self.data.read_batch(self.batchSize, 1)
+        self.vall_l2diffs, self.vall_y_vectors, self.vall_loss =  self.feed_forward(self.vall_x, self.vall_y)
+        self.vall_acc = self.calc_accuracy(self.vall_y, self.vall_l2diffs)
 
-            self.keep_prob = tf.placeholder(tf.float32)
-            self.h_fc1_drop = tf.nn.dropout(self.h_fc1, self.keep_prob)
+        self.test_x, self.test_y, self.test_attr = self.data.read_batch(self.batchSize, 2)
+        self.test_l2diffs, self.test_y_vectors, self.test_loss =  self.feed_forward(self.test_x, self.test_y)
+        self.test_acc = self.calc_accuracy(self.test_y, self.test_l2diffs)
 
-            self.W_fc2 = self.weight_variable([fc1size, output_size])
-            self.b_fc2 = self.bias_variable([output_size])
-
-            self.y_conv = tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2
-
-        with tf.variable_scope("Loss"):
-            if self.landmark == -1:
-                # If y_ is [5,2] l2diffs becomes a 5x1 vector with the vector distances
-                self.y_vectors = tf.reshape(self.y_conv, [-1,5,2])
-                self.l2diffs = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
-                    self.y_, self.y_vectors)),reduction_indices=2))
-                self.loss = tf.reduce_mean(tf.reduce_sum(self.l2diffs,
-                    reduction_indices=1))
-            else:
-                # l2diff will just be scalar values in this case
-                self.y_vectors = self.y_conv
-                self.l2diffs = tf.transpose(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
-                    [self.y_[:,self.landmark]], self.y_vectors)),reduction_indices=2)))
-                self.loss = tf.reduce_mean(tf.squeeze(self.l2diffs))
-
-        with tf.variable_scope("Accuracy"):
-            # interocular distance is distance between eyes
-            self.interocular_distance = tf.sqrt(tf.reduce_sum(tf.square(
-              tf.subtract(self.y_[:,0], self.y_[:,1])),reduction_indices=1))
-            # mean error is the l2 differences normalized by the interocular distance
-            self.mean_error = self.l2diffs / tf.transpose([self.interocular_distance])
-            # correct prediction if mean error < 10 %
-            self.correct_prediction = tf.less(self.mean_error, 0.1)
-            self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, 
-                tf.float32),reduction_indices=0)
-
-        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
+        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
     def trainNetwork(self, nrEpochs, keep_prob):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
-        steps = self.data.num_train_data//self.batchSize
+        steps = self.data.size[0]//self.batchSize
         print("Number of steps per epoch: " + str(steps))
-        for epoch in range(1,nrEpochs+1):
+        for epoch in range(1,nrEpochs):
             avg_acc = np.zeros(5)
             for i in range(steps):
-                _, loss, acc = sess.run([self.train_step, self.loss, self.accuracy],
-                    feed_dict={self.keep_prob:keep_prob, self.training:True})
+                _, loss, acc = sess.run([self.train_step, self.train_loss, self.train_acc],
+                    feed_dict={self.keep_prob:keep_prob})
                 if (i == 0 and epoch == 1):
                     smooth_loss = loss
                 else:
                     smooth_loss = 0.95 * smooth_loss + 0.05 * loss
                 avg_acc = np.add(avg_acc, acc)
+            val_acc = self.compute_accuracy_set(sess, 1)
             avg_acc = np.divide(avg_acc, steps)
             print("Epoch: " + str(epoch))
             print("Avg acc on training set: " + str(np.round(avg_acc,6)))
+            print("Avg acc on validation set: " + str(val_acc))
             print("Smooth loss " + str(smooth_loss))
-            if epoch >= 10:
-                self.testNetwork(sess)
+            # if epoch >= 10:
+            #     self.testNetwork(sess)
         print("Training finished.")
         return sess
 
     def testNetwork(self, sess):
+        mean_acc = self.compute_accuracy_set(sess, 2)
+        print("Accuracy on test set: " + str(mean_acc))
+     
+
+    def compute_accuracy_set(self, sess, set): # set i = [training, validation testing]
         mean_acc = np.zeros(5)
-        steps = self.data.num_test_data//self.batchSize
+        steps = self.data.size[set]//self.batchSize + 1
         for i in range(steps):
-            acc = sess.run([self.accuracy], 
-                feed_dict={self.keep_prob:1.0, self.training:False})[0]
+            if(set == 1): # evaluate accuracy on validation set
+                acc = sess.run([self.vall_acc], feed_dict={self.keep_prob:1.0})[0]
+            elif(set == 2):
+                acc = sess.run([self.test_acc], feed_dict={self.keep_prob:1.0})[0]
             mean_acc = np.add(mean_acc, acc)
         mean_acc = np.round(np.divide(mean_acc, steps), 6)
-        if self.landmark != -1:
-            mean_acc = mean_acc[0]
-
-        print("Accuracy on test set: " + str(mean_acc))
-
+        return mean_acc
+    
     def outputImages(self, sess):
         radius = 2
-        # x = sess.run([self.x])
-        x, feature_vectors = sess.run([self.x, self.y_vectors],
-            feed_dict={self.keep_prob:1.0, self.training:False})
+        x, feature_vectors = sess.run([self.train_x, self.train_y_vectors],
+            feed_dict={self.keep_prob:1.0})
         for i in range(5):
             imgMat = x[i]
             imgMat = np.multiply(imgMat, 255.0) # Scale back up

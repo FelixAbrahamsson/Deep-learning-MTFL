@@ -6,12 +6,15 @@ finalSize = 150
 
 counter = 0
 infoFiles = ["training.txt", "testing.txt"]
+validation_counter = 0
+val_file = open(folder + "validation.txt","a")
+
 for idx in range(len(infoFiles)):
     info = infoFiles[idx]
     f = open(folder+info,"r")
     fnew = open("tmp", 'a')
-    if idx == 0:
-        fnew_augmented = open(folder+"aug_"+info,'a')
+    # if idx == 0:
+    #     fnew_augmented = open(folder+"aug_"+info,'a')
     lines = f.readlines()
     for line in lines:
         
@@ -50,57 +53,67 @@ for idx in range(len(infoFiles)):
         
         attributes = np.array([int(line[i]) for i in range(11,15)])
 
-        # Write resized img to file
-        fnew.write(imgName)
-        for coord in coords:
-            fnew.write(" " + str(coord))
-        for attribute in attributes:
-            fnew.write(" " + str(attribute - 1)) # Subtract 1 for better indexing
-        fnew.write("\n")
-
-        # Mirror the image if it's not part of test data
-        if idx == 0:
-            # Get the new img name
-            splitName = imgName.split('.')
-            imgNameTransp = splitName[0] + '_transl.' + splitName[1]
-
-            # Mirror the image and save it
-            imgTransp = img.copy().transpose(Image.FLIP_LEFT_RIGHT)
-            imgTransp.save(folder+imgNameTransp)
-            imgTransp.close()
-
-            coordsTransp = [0 for i in range(10)]
-            # Translate x-coords for eyes, nose, and mouth
-            coordsTransp[0] = 150 - coords[1]
-            coordsTransp[1] = 150 - coords[0]
-            coordsTransp[2] = 150 - coords[2]
-            coordsTransp[3] = 150 - coords[4]
-            coordsTransp[4] = 150 - coords[3]
-            # Translate y-coords for eyes, nose, and mouth
-            coordsTransp[5] = coords[6]
-            coordsTransp[6] = coords[5]
-            coordsTransp[7] = coords[7]
-            coordsTransp[8] = coords[9]
-            coordsTransp[9] = coords[8]
-            # Translate attributes
-            attributesTransp = np.array([int(line[i]) for i in range(11,15)])
-            attributesTransp[3] = 6 - attributesTransp[3] # Translate head pose
-
-            # Write resized old img to augmented file
-            fnew_augmented.write(imgName)
+        if(idx == 1 and validation_counter <= 1000):
+            val_file.write(imgName)
             for coord in coords:
-                fnew_augmented.write(" " + str(coord))
+                val_file.write(" " + str(coord))
             for attribute in attributes:
-                fnew_augmented.write(" " + str(attribute - 1))
-            fnew_augmented.write("\n")
+                val_file.write(" " + str(attribute - 1)) # Subtract 1 for better indexing
+            val_file.write("\n")
+            validation_counter += 1
 
-            # Write mirrored img to augmented file
-            fnew_augmented.write(imgNameTransp)
-            for coord in coordsTransp:
-                fnew_augmented.write(" " + str(coord))
-            for attribute in attributesTransp:
-                fnew_augmented.write(" " + str(attribute - 1))
-            fnew_augmented.write("\n")
+        else:
+            # Write resized img to file
+            fnew.write(imgName)
+            for coord in coords:
+                fnew.write(" " + str(coord))
+            for attribute in attributes:
+                fnew.write(" " + str(attribute - 1)) # Subtract 1 for better indexing
+            fnew.write("\n")
+
+        # # Mirror the image if it's not part of test data
+        # if idx == 0:
+        #     # Get the new img name
+        #     splitName = imgName.split('.')
+        #     imgNameTransp = splitName[0] + '_transl.' + splitName[1]
+
+        #     # Mirror the image and save it
+        #     imgTransp = img.copy().transpose(Image.FLIP_LEFT_RIGHT)
+        #     imgTransp.save(folder+imgNameTransp)
+        #     imgTransp.close()
+
+        #     coordsTransp = [0 for i in range(10)]
+        #     # Translate x-coords for eyes, nose, and mouth
+        #     coordsTransp[0] = 150 - coords[1]
+        #     coordsTransp[1] = 150 - coords[0]
+        #     coordsTransp[2] = 150 - coords[2]
+        #     coordsTransp[3] = 150 - coords[4]
+        #     coordsTransp[4] = 150 - coords[3]
+        #     # Translate y-coords for eyes, nose, and mouth
+        #     coordsTransp[5] = coords[6]
+        #     coordsTransp[6] = coords[5]
+        #     coordsTransp[7] = coords[7]
+        #     coordsTransp[8] = coords[9]
+        #     coordsTransp[9] = coords[8]
+        #     # Translate attributes
+        #     attributesTransp = np.array([int(line[i]) for i in range(11,15)])
+        #     attributesTransp[3] = 6 - attributesTransp[3] # Translate head pose
+
+        #     # Write resized old img to augmented file
+        #     fnew_augmented.write(imgName)
+        #     for coord in coords:
+        #         fnew_augmented.write(" " + str(coord))
+        #     for attribute in attributes:
+        #         fnew_augmented.write(" " + str(attribute - 1))
+        #     fnew_augmented.write("\n")
+
+        #     # Write mirrored img to augmented file
+        #     fnew_augmented.write(imgNameTransp)
+        #     for coord in coordsTransp:
+        #         fnew_augmented.write(" " + str(coord))
+        #     for attribute in attributesTransp:
+        #         fnew_augmented.write(" " + str(attribute - 1))
+        #     fnew_augmented.write("\n")
 
         # Save resized img
         img.save(folder+imgName)
@@ -112,8 +125,9 @@ for idx in range(len(infoFiles)):
     
     f.close()
     fnew.close()
-    if idx == 0:
-        fnew_augmented.close()
+    val_file.close()
+    # if idx == 0:
+    #     fnew_augmented.close()
     os.remove(folder+info)
     os.rename("tmp",folder+info)
     
