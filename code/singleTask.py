@@ -16,7 +16,6 @@ class CNNSingle():
         self.data = data
         self.landmark = landmark
         self.batchSize = batchSize
-        self.shape = [150, 150, 3]
         self.f_size = 5 # receptive field size
         self.conv1filters = 16 # nr of output channels from conv layer 1
         self.conv2filters = self.conv1filters*2 # nr of output channels from conv layer 2

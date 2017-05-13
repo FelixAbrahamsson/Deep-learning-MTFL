@@ -8,12 +8,11 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 class CNNSingleAtt():
 
     def __init__(self, data, batchSize, attribute):
-        # attribute value:
-        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
+        # attribute values:
+        # 0:gender, 1:smiling, 2:glasses, 3:head_profile
         self.data = data
         self.batchSize = batchSize
         self.createCompGraph(attribute)
-        self.shape = [150, 150, 3]
     
     def weight_variable(self, shape):
         initial = tf.truncated_normal(shape, stddev=0.1)
@@ -31,8 +30,8 @@ class CNNSingleAtt():
                           strides=[1, 2, 2, 1], padding='SAME')
 
     def createCompGraph(self, attribute):
-        # landmark values:
-        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
+        # attribute values:
+        # 0:gender, 1:smiling, 2:glasses, 3:head_profile
 
         conv1filters = 16
         conv2filters = conv1filters*2
@@ -59,14 +58,13 @@ class CNNSingleAtt():
             self.W_conv1 = self.weight_variable([5, 5, 3, conv1filters])
             self.b_conv1 = self.bias_variable([conv1filters])
 
-            self.h_conv1 = tf.nn.relu(self.conv2d(self.x, self.W_conv1)+self.b_conv1)
+            self.h_conv1 = tf.nn.relu(self.conv2d(self.x, self.W_conv1) + self.b_conv1)
             self.h_pool1 = self.max_pool_2x2(self.h_conv1)
 
             self.W_conv2 = self.weight_variable([5, 5, conv1filters, conv2filters])
             self.b_conv2 = self.bias_variable([conv2filters])
 
-            self.h_conv2 = tf.nn.relu(self.conv2d(self.h_pool1,
-             self.W_conv2) + self.b_conv2)
+            self.h_conv2 = tf.nn.relu(self.conv2d(self.h_pool1, self.W_conv2) + self.b_conv2)
             self.h_pool2 = self.max_pool_2x2(self.h_conv2)
             
             self.W_fc1 = self.weight_variable([38 * 38 * conv2filters, 1024])
@@ -82,18 +80,16 @@ class CNNSingleAtt():
             self.b_fc2 = self.bias_variable([output_size])
 
             self.y_conv = tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2
-            # self.y_conv = tf.nn.softmax(tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2)
 
         with tf.variable_scope("Loss"):
 
             self.loss = tf.reduce_mean(
                 tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
 
-            # self.loss = tf.reduce_mean(-tf.log(tf.reduce_sum(self.y_ * self.y_conv, axis=1)+0.0000000001))
-
         with tf.variable_scope("Accuracy"):
-            self.probabilities = tf.nn.softmax(self.y_conv)
-            self.accuracy = tf.reduce_mean(tf.reduce_sum(self.probabilities * self.y_, axis=1))
+
+            self.correct_prediction = tf.equal(tf.argmax(self.y_conv,1), tf.argmax(self.y_,1))
+            self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
 
         
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
