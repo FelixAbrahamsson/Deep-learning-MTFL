@@ -12,12 +12,11 @@ class CNNSingle():
     def __init__(self, data, batchSize, landmark):
         # landmark values:
         # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
+
         self.data = data
         self.landmark = landmark
         self.batchSize = batchSize
         self.shape = [150, 150, 3]
-        # landmark values:
-        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
         self.f_size = 5 # receptive field size
         self.conv1filters = 16 # nr of output channels from conv layer 1
         self.conv2filters = self.conv1filters*2 # nr of output channels from conv layer 2
@@ -105,9 +104,9 @@ class CNNSingle():
         self.train_l2diffs, self.train_y_vectors, self.train_loss =  self.feed_forward(self.train_x, self.train_y)
         self.train_acc = self.calc_accuracy(self.train_y, self.train_l2diffs)
 
-        self.vall_x, self.vall_y, self.vall_attr = self.data.read_batch(self.batchSize, 1)
-        self.vall_l2diffs, self.vall_y_vectors, self.vall_loss =  self.feed_forward(self.vall_x, self.vall_y)
-        self.vall_acc = self.calc_accuracy(self.vall_y, self.vall_l2diffs)
+        self.val_x, self.val_y, self.val_attr = self.data.read_batch(self.batchSize, 1)
+        self.val_l2diffs, self.val_y_vectors, self.val_loss =  self.feed_forward(self.val_x, self.val_y)
+        self.val_acc = self.calc_accuracy(self.val_y, self.val_l2diffs)
 
         self.test_x, self.test_y, self.test_attr = self.data.read_batch(self.batchSize, 2)
         self.test_l2diffs, self.test_y_vectors, self.test_loss =  self.feed_forward(self.test_x, self.test_y)
@@ -148,13 +147,13 @@ class CNNSingle():
         print("Accuracy on test set: " + str(mean_acc))
      
 
-    def compute_accuracy_set(self, sess, set): # set i = [training, validation testing]
+    def compute_accuracy_set(self, sess, cur_set): # set i = [training, validation testing]
         mean_acc = np.zeros(5)
-        steps = self.data.size[set]//self.batchSize + 1
+        steps = self.data.size[cur_set]//self.batchSize + 1
         for i in range(steps):
-            if(set == 1): # evaluate accuracy on validation set
-                acc = sess.run([self.vall_acc], feed_dict={self.keep_prob:1.0})[0]
-            elif(set == 2):
+            if(cur_set == 1): # evaluate accuracy on validation set
+                acc = sess.run([self.val_acc], feed_dict={self.keep_prob:1.0})[0]
+            elif(cur_set == 2):
                 acc = sess.run([self.test_acc], feed_dict={self.keep_prob:1.0})[0]
             mean_acc = np.add(mean_acc, acc)
         mean_acc = np.round(np.divide(mean_acc, steps), 6)
@@ -184,10 +183,10 @@ class CNNSingle():
             im.show()
 
     def debugNetwork(self):
-        sess = tf.InteractiveSession()
+        sess = tf.Session()
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
-        # batch = self.data.nextBatch(50)
-        batch = self.data.getTestdata()
-        output = sess.run(self.x, 
-          feed_dict={self.x: batch[0], self.y_: batch[1], self.keep_prob: 0.5})
-        print(output.shape)
+
+        output = sess.run(self.loss, feed_dict={self.keep_prob:1.0, self.training:True})
+        print(output)

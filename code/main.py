@@ -4,8 +4,11 @@ import tensorflow as tf
 from InputPipeline import DataReader
 from singleTask import CNNSingle
 
+train_txt = "training.txt"
+# train_txt = "aug_training.txt"
+
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
-data = DataReader(dataFolder, ["training.txt", "validation.txt", "testing.txt"])
+data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
 
 network = CNNSingle(data, 50, -1) #batch size, landmark
 # network.debugNetwork()

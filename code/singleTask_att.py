@@ -44,8 +44,8 @@ class CNNSingleAtt():
 
         with tf.variable_scope("Input"):
             self.training = tf.placeholder(tf.bool)
-            self.train_x, self.train_land, self.train_y_ = self.data.read_batch(self.batchSize, True)
-            self.test_x, self.test_land, self.test_y_ = self.data.read_batch(self.batchSize, False)
+            self.train_x, self.train_land, self.train_y_ = self.data.read_batch(self.batchSize, 0)
+            self.test_x, self.test_land, self.test_y_ = self.data.read_batch(self.batchSize, 2)
 
         with tf.variable_scope("Net"):
 
@@ -81,13 +81,19 @@ class CNNSingleAtt():
             self.W_fc2 = self.weight_variable([1024, output_size])
             self.b_fc2 = self.bias_variable([output_size])
 
-            self.y_conv = tf.nn.softmax(tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2)
+            self.y_conv = tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2
+            # self.y_conv = tf.nn.softmax(tf.matmul(self.h_fc1_drop, self.W_fc2) + self.b_fc2)
 
         with tf.variable_scope("Loss"):
-            self.loss = tf.reduce_mean(-tf.log(tf.reduce_sum(self.y_ * self.y_conv, axis=1)+0.0000000001))
+
+            self.loss = tf.reduce_mean(
+                tf.nn.softmax_cross_entropy_with_logits(labels=self.y_, logits=self.y_conv))
+
+            # self.loss = tf.reduce_mean(-tf.log(tf.reduce_sum(self.y_ * self.y_conv, axis=1)+0.0000000001))
 
         with tf.variable_scope("Accuracy"):
-            self.accuracy = tf.reduce_mean(tf.reduce_sum(self.y_conv * self.y_, axis=1))
+            self.probabilities = tf.nn.softmax(self.y_conv)
+            self.accuracy = tf.reduce_mean(tf.reduce_sum(self.probabilities * self.y_, axis=1))
 
         
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
@@ -97,7 +103,7 @@ class CNNSingleAtt():
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
-        steps = self.data.num_train_data//self.batchSize
+        steps = self.data.size[0]//self.batchSize
         print("Number of steps per epoch: " + str(steps))
         for epoch in range(1,nrEpochs+1):
             avg_acc = 0.0
@@ -119,7 +125,7 @@ class CNNSingleAtt():
     def testNetwork(self, sess):
         self.x, landmarks, self.y_ = self.data.read_batch(self.batchSize, False)
         mean_acc = 0
-        steps = self.data.num_test_data//self.batchSize
+        steps = self.data.size[2]//self.batchSize
         for i in range(steps):
             acc = sess.run([self.accuracy], feed_dict={self.keep_prob:1.0, self.training:False})[0]
             mean_acc += acc
