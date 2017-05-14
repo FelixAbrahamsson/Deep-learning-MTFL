@@ -30,10 +30,10 @@ class CNNMulti():
 
         # These control how much the different attribute loss functions
         # contribute to the total loss
-        self.lambda_gender = 1.0
-        self.lambda_smile = 1.0
-        self.lambda_glasses = 1.0
-        self.lambda_pose = 1.0
+        self.lambda_gender = 3.0
+        self.lambda_smile = 3.0
+        self.lambda_glasses = 3.0
+        self.lambda_pose = 3.0
 
         self.createCompGraph()
 
@@ -88,6 +88,8 @@ class CNNMulti():
         # y_ is the input from the first FC layer
 
         y_conv = tf.matmul(y_, W_fc2) + b_fc2
+        # loss = tf.reduce_mean(
+        #         tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
         loss = tf.reduce_mean(
                 tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
         return y_conv, loss
@@ -144,6 +146,14 @@ class CNNMulti():
         pose = tf.one_hot(attr[:,3], self.output_size_attr2)
         return gender, smile, glasses, pose
 
+    def get_attributes_sparse(self, attr):
+
+        gender = attr[:,0]
+        smile = attr[:,1]
+        glasses = attr[:,2]
+        pose = attr[:,3]
+        return gender, smile, glasses, pose
+
     def createCompGraph(self):     
         self.initiate_net()    
 
@@ -152,7 +162,7 @@ class CNNMulti():
         self.train_gender, self.train_smile, self.train_glasses, self.train_pose = self.get_one_hot(self.train_attr)
 
         train_fc_1 = self.shared_layer_output(self.train_x)
-        self.train_l2diffs, self.train_y_vectors, self.train_loss_FL =  self.feed_forward_FL(train_fc_1, self.train_y)
+        self.train_l2diffs, self.train_y_vectors, self.train_loss_FL = self.feed_forward_FL(train_fc_1, self.train_y)
         self.train_acc_FL = self.calc_accuracy_FL(self.train_y, self.train_l2diffs)
         # Get losses and acc for attributes
         self.train_y_conv_gender, self.train_loss_gender = self.feed_forward_attr(
@@ -174,7 +184,7 @@ class CNNMulti():
         self.val_gender, self.val_smile, self.val_glasses, self.val_pose = self.get_one_hot(self.val_attr)
 
         val_fc_1 = self.shared_layer_output(self.val_x)
-        self.val_l2diffs, self.val_y_vectors, self.val_loss_FL =  self.feed_forward_FL(val_fc_1, self.val_y)
+        self.val_l2diffs, self.val_y_vectors, self.val_loss_FL = self.feed_forward_FL(val_fc_1, self.val_y)
         self.val_acc_FL = self.calc_accuracy_FL(self.val_y, self.val_l2diffs)
         # Get losses and acc for attributes
         self.val_y_conv_gender, self.val_loss_gender = self.feed_forward_attr(
@@ -196,7 +206,7 @@ class CNNMulti():
         self.test_gender, self.test_smile, self.test_glasses, self.test_pose = self.get_one_hot(self.test_attr)
 
         test_fc_1 = self.shared_layer_output(self.test_x)
-        self.test_l2diffs, self.test_y_vectors, self.test_loss_FL =  self.feed_forward_FL(test_fc_1, self.test_y)
+        self.test_l2diffs, self.test_y_vectors, self.test_loss_FL = self.feed_forward_FL(test_fc_1, self.test_y)
         self.test_acc_FL = self.calc_accuracy_FL(self.test_y, self.test_l2diffs)
         # Get losses and acc for attributes
         self.test_y_conv_gender, self.test_loss_gender = self.feed_forward_attr(
@@ -281,12 +291,12 @@ class CNNMulti():
             acc_attr = np.zeros(4)
             if(cur_set == 1): # evaluate accuracy on validation set
                 acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.val_acc_FL, 
-                    self.val_acc_gender, self.val_acc_smile, self.val_glasses, self.val_acc_pose], 
-                    feed_dict={self.keep_prob:1.0})[0]
+                    self.val_acc_gender, self.val_acc_smile, self.val_acc_glasses, self.val_acc_pose], 
+                    feed_dict={self.keep_prob:1.0})
             elif(cur_set == 2):
                 acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.test_acc_FL, 
-                    self.test_acc_gender, self.test_acc_smile, self.test_glasses, self.test_acc_pose], 
-                    feed_dict={self.keep_prob:1.0})[0]
+                    self.test_acc_gender, self.test_acc_smile, self.test_acc_glasses, self.test_acc_pose], 
+                    feed_dict={self.keep_prob:1.0})
             mean_acc_FL = np.add(mean_acc_FL, acc_FL)
             mean_acc_attr = np.add(mean_acc_attr, acc_attr)
         mean_acc_FL = np.round(np.divide(mean_acc_FL, steps), 6)
@@ -322,5 +332,10 @@ class CNNMulti():
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
 
-        output = sess.run(self.train_acc_gender, feed_dict={self.keep_prob:1.0})
+        output, ge, sm, gl, po = sess.run([self.train_loss_FL, self.train_loss_gender, self.train_loss_smile, self.train_loss_glasses, self.train_loss_pose], 
+            feed_dict={self.keep_prob:1.0})
         print(output)
+        print(ge)
+        print(sm)
+        print(gl)
+        print(po)

@@ -18,6 +18,6 @@ data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
 network = CNNMulti(data, 50, -1) #batch size, landmark
 
 # network.debugNetwork()
-sess = network.trainNetwork(3, 1.0) # epochs, keep_prob
+sess = network.trainNetwork(5, 1.0) # epochs, keep_prob
 network.testNetwork(sess)
 network.outputImages(sess)
