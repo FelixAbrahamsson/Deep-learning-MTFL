@@ -25,7 +25,7 @@ class CNNSingle():
             self.output_size = 10
         else:
             self.output_size = 2
-        self.createCompGraph()
+        self.create_comp_graph()
 
     def weight_variable(self, shape):
         initial = tf.truncated_normal(shape, stddev=0.1)
@@ -96,7 +96,7 @@ class CNNSingle():
         self.W_fc2 = self.weight_variable([self.fc1size, self.output_size])
         self.b_fc2 = self.bias_variable([self.output_size])
 
-    def createCompGraph(self):     
+    def create_comp_graph(self):     
         self.initiate_net()    
 
         self.train_x, self.train_y, self.train_attr = self.data.read_batch(self.batchSize, 0)
@@ -113,7 +113,7 @@ class CNNSingle():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
-    def trainNetwork(self, nrEpochs, keep_prob):
+    def train_network(self, nrEpochs, keep_prob):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
@@ -141,7 +141,7 @@ class CNNSingle():
         print("Training finished.")
         return sess
 
-    def testNetwork(self, sess):
+    def test_network(self, sess):
         mean_acc = self.compute_accuracy_set(sess, 2)
         print("Accuracy on test set: " + str(mean_acc))
      
@@ -158,17 +158,17 @@ class CNNSingle():
         mean_acc = np.round(np.divide(mean_acc, steps), 6)
         return mean_acc
     
-    def outputImages(self, sess):
+    def output_images(self, sess):
         radius = 2
         x, feature_vectors = sess.run([self.train_x, self.train_y_vectors],
             feed_dict={self.keep_prob:1.0})
         for i in range(5):
-            imgMat = x[i]
-            imgMat = np.multiply(imgMat, 255.0) # Scale back up
-            imgData = imgMat.reshape(150*150,3).astype(int)
-            imgData = tuple(map(tuple, imgData))
+            img_mat = x[i]
+            img_mat = np.multiply(img_mat, 255.0) # Scale back up
+            img_data = img_mat.reshape(150*150,3).astype(int)
+            img_data = tuple(map(tuple, img_data))
             im = Image.new("RGB", (150,150))
-            im.putdata(imgData)
+            im.putdata(img_data)
             draw = ImageDraw.Draw(im)
             if self.landmark == -1:
                 y_ = feature_vectors[i]
@@ -181,7 +181,7 @@ class CNNSingle():
                     fill = 'green', outline ='blue')
             im.show()
 
-    def debugNetwork(self):
+    def debug_network(self):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)

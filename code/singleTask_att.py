@@ -25,7 +25,7 @@ class CNNSingleAtt():
             self.output_size = 2
         else:
             self.output_size = 5
-        self.createCompGraph()
+        self.create_comp_graph()
 
     def weight_variable(self, shape):
         initial = tf.truncated_normal(shape, stddev=0.1)
@@ -77,7 +77,7 @@ class CNNSingleAtt():
         self.W_fc2 = self.weight_variable([self.fc1size, self.output_size])
         self.b_fc2 = self.bias_variable([self.output_size])
 
-    def createCompGraph(self):     
+    def create_comp_graph(self):     
         self.initiate_net()    
 
         self.train_x, _ , self.train_attr = self.data.read_batch(self.batchSize, 0)
@@ -97,7 +97,7 @@ class CNNSingleAtt():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
-    def trainNetwork(self, nrEpochs, keep_prob):
+    def train_network(self, nrEpochs, keep_prob):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
@@ -126,7 +126,7 @@ class CNNSingleAtt():
         print("Training finished.")
         return sess
 
-    def testNetwork(self, sess):
+    def test_network(self, sess):
         mean_acc = self.compute_accuracy_set(sess, 2)
         print("Accuracy on test set: " + str(mean_acc))
      
@@ -144,7 +144,7 @@ class CNNSingleAtt():
         return mean_acc
     
 
-    def debugNetwork(self):
+    def debug_network(self):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)

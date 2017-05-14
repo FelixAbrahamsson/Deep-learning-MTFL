@@ -9,22 +9,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 
 class CNNMulti():
 
-    def __init__(self, data, batchSize, landmark):
-        # landmark values:
-        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
+    def __init__(self, data, batchSize):
 
         self.data = data
-        self.landmark = landmark
         self.batchSize = batchSize
         self.f_size = 5 # receptive field size
         self.conv1filters = 16 # nr of output channels from conv layer 1
         self.conv2filters = self.conv1filters*2 # nr of output channels from conv layer 2
         self.fc1size = 1024
 
-        if self.landmark == -1:
-            self.output_size_FL = 10 # all FL at the same time
-        else:
-            self.output_size_FL = 2 # one FL
+        self.output_size_FL = 10
         self.output_size_attr1 = 2 # gender, glasses, smile
         self.output_size_attr2 = 5 # head pose
 
@@ -35,7 +29,7 @@ class CNNMulti():
         self.lambda_glasses = 3.0
         self.lambda_pose = 3.0
 
-        self.createCompGraph()
+        self.create_comp_graph()
 
     def weight_variable(self, shape):
         initial = tf.truncated_normal(shape, stddev=0.1)
@@ -64,27 +58,20 @@ class CNNMulti():
         h_fc1_drop = tf.nn.dropout(h_fc1, self.keep_prob)
         return h_fc1_drop
 
-    def feed_forward_FL(self, y_, y):
+    def get_loss_FL(self, y_, y):
         # y_ is the input from the first FC layer
 
         y_conv = tf.matmul(y_, self.W_fc2_FL) + self.b_fc2_FL
+        # If y_conv is [5,2] l2diffs becomes a 5x1 vector with the vector distances
+        y_vectors = tf.reshape(y_conv, [-1,5,2])
+        l2diffs = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
+            y, y_vectors)),reduction_indices=2))
+        loss = tf.reduce_mean(tf.reduce_sum(l2diffs,
+            reduction_indices=1))
 
-        if self.landmark == -1:
-            # If y_ is [5,2] l2diffs becomes a 5x1 vector with the vector distances
-            y_vectors = tf.reshape(y_conv, [-1,5,2])
-            l2diffs = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
-                y, y_vectors)),reduction_indices=2))
-            loss = tf.reduce_mean(tf.reduce_sum(l2diffs,
-                reduction_indices=1))
-        else:
-            # l2diff will just be scalar values in this case
-            y_vectors = y_conv
-            l2diffs = tf.transpose(tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(
-                [y[:,self.landmark]], y_vectors)),reduction_indices=2)))
-            loss = tf.reduce_mean(tf.squeeze(l2diffs))
         return l2diffs, y_vectors, loss
 
-    def feed_forward_attr(self, y_, y, W_fc2, b_fc2):
+    def get_loss_attr(self, y_, y, W_fc2, b_fc2):
         # y_ is the input from the first FC layer
 
         y_conv = tf.matmul(y_, W_fc2) + b_fc2
@@ -146,7 +133,7 @@ class CNNMulti():
         pose = attr[:,3]
         return gender, smile, glasses, pose
 
-    def createCompGraph(self):     
+    def create_comp_graph(self):     
         self.initiate_net()    
 
         # Training comp graph
@@ -154,16 +141,16 @@ class CNNMulti():
         self.train_gender, self.train_smile, self.train_glasses, self.train_pose = self.get_attributes_sparse(self.train_attr)
 
         train_fc_1 = self.shared_layer_output(self.train_x)
-        self.train_l2diffs, self.train_y_vectors, self.train_loss_FL = self.feed_forward_FL(train_fc_1, self.train_y)
+        self.train_l2diffs, self.train_y_vectors, self.train_loss_FL = self.get_loss_FL(train_fc_1, self.train_y)
         self.train_acc_FL = self.calc_accuracy_FL(self.train_y, self.train_l2diffs)
         # Get losses and acc for attributes
-        self.train_y_conv_gender, self.train_loss_gender = self.feed_forward_attr(
+        self.train_y_conv_gender, self.train_loss_gender = self.get_loss_attr(
             train_fc_1, self.train_gender, self.W_fc2_gender, self.b_fc2_gender)
-        self.train_y_conv_smile, self.train_loss_smile = self.feed_forward_attr(
+        self.train_y_conv_smile, self.train_loss_smile = self.get_loss_attr(
             train_fc_1, self.train_smile, self.W_fc2_smile, self.b_fc2_smile)
-        self.train_y_conv_glasses, self.train_loss_glasses = self.feed_forward_attr(
+        self.train_y_conv_glasses, self.train_loss_glasses = self.get_loss_attr(
             train_fc_1, self.train_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
-        self.train_y_conv_pose, self.train_loss_pose = self.feed_forward_attr(
+        self.train_y_conv_pose, self.train_loss_pose = self.get_loss_attr(
             train_fc_1, self.train_pose, self.W_fc2_pose, self.b_fc2_pose)
         self.train_acc_gender = self.calc_accuracy_attr(self.train_y_conv_gender, self.train_gender)
         self.train_acc_smile = self.calc_accuracy_attr(self.train_y_conv_smile, self.train_smile)
@@ -176,16 +163,16 @@ class CNNMulti():
         self.val_gender, self.val_smile, self.val_glasses, self.val_pose = self.get_attributes_sparse(self.val_attr)
 
         val_fc_1 = self.shared_layer_output(self.val_x)
-        self.val_l2diffs, self.val_y_vectors, self.val_loss_FL = self.feed_forward_FL(val_fc_1, self.val_y)
+        self.val_l2diffs, self.val_y_vectors, self.val_loss_FL = self.get_loss_FL(val_fc_1, self.val_y)
         self.val_acc_FL = self.calc_accuracy_FL(self.val_y, self.val_l2diffs)
         # Get losses and acc for attributes
-        self.val_y_conv_gender, self.val_loss_gender = self.feed_forward_attr(
+        self.val_y_conv_gender, self.val_loss_gender = self.get_loss_attr(
             val_fc_1, self.val_gender, self.W_fc2_gender, self.b_fc2_gender)
-        self.val_y_conv_smile, self.val_loss_smile = self.feed_forward_attr(
+        self.val_y_conv_smile, self.val_loss_smile = self.get_loss_attr(
             val_fc_1, self.val_smile, self.W_fc2_smile, self.b_fc2_smile)
-        self.val_y_conv_glasses, self.val_loss_glasses = self.feed_forward_attr(
+        self.val_y_conv_glasses, self.val_loss_glasses = self.get_loss_attr(
             val_fc_1, self.val_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
-        self.val_y_conv_pose, self.val_loss_pose = self.feed_forward_attr(
+        self.val_y_conv_pose, self.val_loss_pose = self.get_loss_attr(
             val_fc_1, self.val_pose, self.W_fc2_pose, self.b_fc2_pose)
         self.val_acc_gender = self.calc_accuracy_attr(self.val_y_conv_gender, self.val_gender)
         self.val_acc_smile = self.calc_accuracy_attr(self.val_y_conv_smile, self.val_smile)
@@ -198,16 +185,16 @@ class CNNMulti():
         self.test_gender, self.test_smile, self.test_glasses, self.test_pose = self.get_attributes_sparse(self.test_attr)
 
         test_fc_1 = self.shared_layer_output(self.test_x)
-        self.test_l2diffs, self.test_y_vectors, self.test_loss_FL = self.feed_forward_FL(test_fc_1, self.test_y)
+        self.test_l2diffs, self.test_y_vectors, self.test_loss_FL = self.get_loss_FL(test_fc_1, self.test_y)
         self.test_acc_FL = self.calc_accuracy_FL(self.test_y, self.test_l2diffs)
         # Get losses and acc for attributes
-        self.test_y_conv_gender, self.test_loss_gender = self.feed_forward_attr(
+        self.test_y_conv_gender, self.test_loss_gender = self.get_loss_attr(
             test_fc_1, self.test_gender, self.W_fc2_gender, self.b_fc2_gender)
-        self.test_y_conv_smile, self.test_loss_smile = self.feed_forward_attr(
+        self.test_y_conv_smile, self.test_loss_smile = self.get_loss_attr(
             test_fc_1, self.test_smile, self.W_fc2_smile, self.b_fc2_smile)
-        self.test_y_conv_glasses, self.test_loss_glasses = self.feed_forward_attr(
+        self.test_y_conv_glasses, self.test_loss_glasses = self.get_loss_attr(
             test_fc_1, self.test_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
-        self.test_y_conv_pose, self.test_loss_pose = self.feed_forward_attr(
+        self.test_y_conv_pose, self.test_loss_pose = self.get_loss_attr(
             test_fc_1, self.test_pose, self.W_fc2_pose, self.b_fc2_pose)
         self.test_acc_gender = self.calc_accuracy_attr(self.test_y_conv_gender, self.test_gender)
         self.test_acc_smile = self.calc_accuracy_attr(self.test_y_conv_smile, self.test_smile)
@@ -233,7 +220,7 @@ class CNNMulti():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.total_train_loss)
 
-    def trainNetwork(self, nrEpochs, keep_prob):
+    def train_network(self, nrEpochs, keep_prob):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
@@ -244,8 +231,9 @@ class CNNMulti():
         stop_smile = False
         stop_glasses = False
         stop_pose = False
+
         print("Number of steps per epoch: " + str(steps))
-        for epoch in range(1, nrEpochs+1):
+        for epoch in range(1, nrEpochs + 1):
             train_mean_acc_FL = np.zeros(5)
             train_mean_acc_attr = np.zeros(4)
             for i in range(steps):
@@ -261,64 +249,71 @@ class CNNMulti():
             train_mean_acc_FL = np.round(np.divide(train_mean_acc_FL, steps), 6)
             train_mean_acc_attr = np.round(np.divide(train_mean_acc_attr, steps), 6)
 
-            val_acc_FL, val_acc_attr = self.compute_accuracy_set(sess, 1)
+            val_acc_FL, val_acc_attr, val_losses = self.compute_accuracy_set(sess, 1)
             print("Epoch: " + str(epoch))
             print("FL mean acc on train set: " + str(train_mean_acc_FL))
             print("Attributes mean acc on train set: " + str(train_mean_acc_attr))
             print("FL acc on validation set: " + str(val_acc_FL))
             print("Attributes acc on validation set: " + str(val_acc_attr))
+            print("Losses on validation set (FL, ge, sm, gl, po): " + str(val_losses))
         print("Training finished.")
         return sess
 
-    def testNetwork(self, sess):
-        mean_acc_FL, mean_acc_attr = self.compute_accuracy_set(sess, 2)
+    def test_network(self, sess):
+        mean_acc_FL, mean_acc_attr, losses = self.compute_accuracy_set(sess, 2)
         print("FL acc on test set: " + str(mean_acc_FL))
-        print("Attributes acc on test set" + str(mean_acc_attr))
+        print("Attributes acc on test set: " + str(mean_acc_attr))
+        print("Losses on test set (FL, ge, sm, gl, po): " + str(losses))
 
     def compute_accuracy_set(self, sess, cur_set): # set i = [training, validation testing]
+        mean_losses = np.zeros(5)
         mean_acc_FL = np.zeros(5)
         mean_acc_attr = np.zeros(4)
-        steps = self.data.size[cur_set]//self.batchSize + 1
+        steps = self.data.size[cur_set]//self.batchSize
         for i in range(steps):
             acc_attr = np.zeros(4)
+            losses = np.zeros(5)
             if(cur_set == 1): # evaluate accuracy on validation set
-                acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.val_acc_FL, 
-                    self.val_acc_gender, self.val_acc_smile, self.val_acc_glasses, self.val_acc_pose], 
+                losses[0], losses[1], losses[2], losses[3], losses[4], \
+                acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.val_loss_FL,
+                    self.val_loss_gender, self.val_loss_smile, self.val_loss_glasses, self.val_loss_pose,
+                    self.val_acc_FL, self.val_acc_gender, self.val_acc_smile, self.val_acc_glasses, self.val_acc_pose], 
                     feed_dict={self.keep_prob:1.0})
             elif(cur_set == 2):
-                acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.test_acc_FL, 
-                    self.test_acc_gender, self.test_acc_smile, self.test_acc_glasses, self.test_acc_pose], 
+                losses[0], losses[1], losses[2], losses[3], losses[4], \
+                acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.test_loss_FL,
+                    self.test_loss_gender, self.test_loss_smile, self.test_loss_glasses, self.test_loss_pose,
+                    self.test_acc_FL, self.test_acc_gender, self.test_acc_smile, self.test_acc_glasses, self.test_acc_pose], 
                     feed_dict={self.keep_prob:1.0})
             mean_acc_FL = np.add(mean_acc_FL, acc_FL)
             mean_acc_attr = np.add(mean_acc_attr, acc_attr)
+            mean_losses = np.add(mean_losses, losses)
         mean_acc_FL = np.round(np.divide(mean_acc_FL, steps), 6)
         mean_acc_attr = np.round(np.divide(mean_acc_attr, steps), 6)
-        return mean_acc_FL, mean_acc_attr
+        mean_losses = np.round(np.divide(mean_losses, steps), 6)
+        return mean_acc_FL, mean_acc_attr, mean_losses
     
-    def outputImages(self, sess):
-        radius = 2
+    def output_images(self, sess):
+        radius = 2.0
         x, feature_vectors = sess.run([self.test_x, self.test_y_vectors],
             feed_dict={self.keep_prob:1.0})
         for i in range(5):
-            imgMat = x[i]
-            imgMat = np.multiply(imgMat, 255.0) # Scale back up
-            imgData = imgMat.reshape(150*150,3).astype(int)
-            imgData = tuple(map(tuple, imgData))
+            img_mat = x[i]
+            img_mat = np.multiply(img_mat, 255.0) # Scale back up
+            img_data = img_mat.reshape(150*150,3).astype(int)
+            img_data = tuple(map(tuple, img_data))
             im = Image.new("RGB", (150,150))
-            im.putdata(imgData)
+            im.putdata(img_data)
             draw = ImageDraw.Draw(im)
-            if self.landmark == -1:
-                y_ = feature_vectors[i]
-            else:
-                y_ = [feature_vectors[i]]
-            for coords in y_:
+
+            for coords in feature_vectors[i]:
                 FL_x = coords[0]
                 FL_y = coords[1]
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
                     fill = 'green', outline ='blue')
             im.show()
 
-    def debugNetwork(self):
+    def debug_network(self):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
