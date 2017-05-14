@@ -88,10 +88,8 @@ class CNNMulti():
         # y_ is the input from the first FC layer
 
         y_conv = tf.matmul(y_, W_fc2) + b_fc2
-        # loss = tf.reduce_mean(
-        #         tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
         loss = tf.reduce_mean(
-                tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
+                tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
         return y_conv, loss
 
     def calc_accuracy_FL(self, y, l2diffs):
@@ -106,7 +104,8 @@ class CNNMulti():
         return accuracy
 
     def calc_accuracy_attr(self, y_conv, y):
-        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y,1))
+        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.cast(y, tf.int64))
+
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         return accuracy
 
@@ -138,13 +137,6 @@ class CNNMulti():
         self.W_fc2_pose = self.weight_variable([self.fc1size, self.output_size_attr2])
         self.b_fc2_pose = self.bias_variable([self.output_size_attr2])
 
-    def get_one_hot(self, attr):
-
-        gender = tf.one_hot(attr[:,0], self.output_size_attr1)
-        smile = tf.one_hot(attr[:,1], self.output_size_attr1)
-        glasses = tf.one_hot(attr[:,2], self.output_size_attr1)
-        pose = tf.one_hot(attr[:,3], self.output_size_attr2)
-        return gender, smile, glasses, pose
 
     def get_attributes_sparse(self, attr):
 
@@ -159,7 +151,7 @@ class CNNMulti():
 
         # Training comp graph
         self.train_x, self.train_y, self.train_attr = self.data.read_batch(self.batchSize, 0)
-        self.train_gender, self.train_smile, self.train_glasses, self.train_pose = self.get_one_hot(self.train_attr)
+        self.train_gender, self.train_smile, self.train_glasses, self.train_pose = self.get_attributes_sparse(self.train_attr)
 
         train_fc_1 = self.shared_layer_output(self.train_x)
         self.train_l2diffs, self.train_y_vectors, self.train_loss_FL = self.feed_forward_FL(train_fc_1, self.train_y)
@@ -181,7 +173,7 @@ class CNNMulti():
 
         # Validation comp graph
         self.val_x, self.val_y, self.val_attr = self.data.read_batch(self.batchSize, 1)
-        self.val_gender, self.val_smile, self.val_glasses, self.val_pose = self.get_one_hot(self.val_attr)
+        self.val_gender, self.val_smile, self.val_glasses, self.val_pose = self.get_attributes_sparse(self.val_attr)
 
         val_fc_1 = self.shared_layer_output(self.val_x)
         self.val_l2diffs, self.val_y_vectors, self.val_loss_FL = self.feed_forward_FL(val_fc_1, self.val_y)
@@ -203,7 +195,7 @@ class CNNMulti():
 
         # Test comp graph
         self.test_x, self.test_y, self.test_attr = self.data.read_batch(self.batchSize, 2)
-        self.test_gender, self.test_smile, self.test_glasses, self.test_pose = self.get_one_hot(self.test_attr)
+        self.test_gender, self.test_smile, self.test_glasses, self.test_pose = self.get_attributes_sparse(self.test_attr)
 
         test_fc_1 = self.shared_layer_output(self.test_x)
         self.test_l2diffs, self.test_y_vectors, self.test_loss_FL = self.feed_forward_FL(test_fc_1, self.test_y)
