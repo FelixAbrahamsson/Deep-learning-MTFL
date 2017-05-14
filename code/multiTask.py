@@ -7,7 +7,7 @@ from PIL import Image
 from PIL import ImageDraw
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 
-class CNNSingle():
+class CNNMulti():
 
     def __init__(self, data, batchSize, landmark):
         # landmark values:
@@ -28,6 +28,13 @@ class CNNSingle():
         self.output_size_attr1 = 2 # gender, glasses, smile
         self.output_size_attr2 = 5 # head pose
 
+        # These control how much the different attribute loss functions
+        # contribute to the total loss
+        self.lambda_gender = 1.0
+        self.lambda_smile = 1.0
+        self.lambda_glasses = 1.0
+        self.lambda_pose = 1.0
+
         self.createCompGraph()
 
     def weight_variable(self, shape):
@@ -45,7 +52,7 @@ class CNNSingle():
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME')
 
-    def shared_layer_output(self, x, y):
+    def shared_layer_output(self, x):
         h_conv1 = tf.nn.relu(self.conv2d(x, self.W_conv1)+self.b_conv1)
         h_pool1 = self.max_pool_2x2(h_conv1)
         
@@ -57,9 +64,10 @@ class CNNSingle():
         h_fc1_drop = tf.nn.dropout(h_fc1, self.keep_prob)
         return h_fc1_drop
 
-    def feed_forward_FL(self, y, y_):
+    def feed_forward_FL(self, y_, y):
+        # y_ is the input from the first FC layer
 
-        y_conv = tf.matmul(h_fc1_drop, self.W_fc2_FL) + self.b_fc2_FL
+        y_conv = tf.matmul(y_, self.W_fc2_FL) + self.b_fc2_FL
 
         if self.landmark == -1:
             # If y_ is [5,2] l2diffs becomes a 5x1 vector with the vector distances
@@ -76,11 +84,12 @@ class CNNSingle():
             loss = tf.reduce_mean(tf.squeeze(l2diffs))
         return l2diffs, y_vectors, loss
 
-    def feed_forward_attr(self, y, y_, W_fc2, b_fc2):
+    def feed_forward_attr(self, y_, y, W_fc2, b_fc2):
+        # y_ is the input from the first FC layer
 
-        y_conv = tf.matmul(self.h_fc1_drop, W_fc2) + b_fc2
+        y_conv = tf.matmul(y_, W_fc2) + b_fc2
         loss = tf.reduce_mean(
-                tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+                tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
         return y_conv, loss
 
     def calc_accuracy_FL(self, y, l2diffs):
@@ -91,12 +100,13 @@ class CNNSingle():
         # correct prediction if mean error < 10 %
         correct_prediction = tf.less(mean_error, 0.1)
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, 
-        tf.float32),reduction_indices=0)
+            tf.float32), reduction_indices=0)
         return accuracy
 
-    def calc_accuracy_attr(self, y_conv, y_):
-        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
+    def calc_accuracy_attr(self, y_conv, y):
+        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y,1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        return accuracy
 
     def initiate_net(self):
         # We have 3 input channels, rgb
@@ -126,34 +136,100 @@ class CNNSingle():
         self.W_fc2_pose = self.weight_variable([self.fc1size, self.output_size_attr2])
         self.b_fc2_pose = self.bias_variable([self.output_size_attr2])
 
+    def get_one_hot(self, attr):
+
+        gender = tf.one_hot(attr[:,0], self.output_size_attr1)
+        smile = tf.one_hot(attr[:,1], self.output_size_attr1)
+        glasses = tf.one_hot(attr[:,2], self.output_size_attr1)
+        pose = tf.one_hot(attr[:,3], self.output_size_attr2)
+        return gender, smile, glasses, pose
+
     def createCompGraph(self):     
         self.initiate_net()    
 
+        # Training comp graph
         self.train_x, self.train_y, self.train_attr = self.data.read_batch(self.batchSize, 0)
-        self.train_gender = tf.one_hot(self.train_attr[:,0], self.output_size_attr1)
-        self.train_smile = tf.one_hot(self.train_attr[:,1], self.output_size_attr1)
-        self.train_glasses = tf.one_hot(self.train_attr[:,2], self.output_size_attr1)
-        self.train_pose = tf.one_hot(self.train_attr[:,3], self.output_size_attr2)
-        self.train_l2diffs, self.train_y_vectors, self.train_loss =  self.feed_forward(self.train_x, self.train_y)
-        self.train_acc = self.calc_accuracy(self.train_y, self.train_l2diffs)
+        self.train_gender, self.train_smile, self.train_glasses, self.train_pose = self.get_one_hot(self.train_attr)
 
+        train_fc_1 = self.shared_layer_output(self.train_x)
+        self.train_l2diffs, self.train_y_vectors, self.train_loss_FL =  self.feed_forward_FL(train_fc_1, self.train_y)
+        self.train_acc_FL = self.calc_accuracy_FL(self.train_y, self.train_l2diffs)
+        # Get losses and acc for attributes
+        self.train_y_conv_gender, self.train_loss_gender = self.feed_forward_attr(
+            train_fc_1, self.train_gender, self.W_fc2_gender, self.b_fc2_gender)
+        self.train_y_conv_smile, self.train_loss_smile = self.feed_forward_attr(
+            train_fc_1, self.train_smile, self.W_fc2_smile, self.b_fc2_smile)
+        self.train_y_conv_glasses, self.train_loss_glasses = self.feed_forward_attr(
+            train_fc_1, self.train_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
+        self.train_y_conv_pose, self.train_loss_pose = self.feed_forward_attr(
+            train_fc_1, self.train_pose, self.W_fc2_pose, self.b_fc2_pose)
+        self.train_acc_gender = self.calc_accuracy_attr(self.train_y_conv_gender, self.train_gender)
+        self.train_acc_smile = self.calc_accuracy_attr(self.train_y_conv_smile, self.train_smile)
+        self.train_acc_glasses = self.calc_accuracy_attr(self.train_y_conv_glasses, self.train_glasses)
+        self.train_acc_pose = self.calc_accuracy_attr(self.train_y_conv_pose, self.train_pose)
+
+
+        # Validation comp graph
         self.val_x, self.val_y, self.val_attr = self.data.read_batch(self.batchSize, 1)
-        self.val_gender = tf.one_hot(self.val_attr[:,0], self.output_size_attr1)
-        self.val_smile = tf.one_hot(self.val_attr[:,1], self.output_size_attr1)
-        self.val_glasses = tf.one_hot(self.val_attr[:,2], self.output_size_attr1)
-        self.val_pose = tf.one_hot(self.val_attr[:,3], self.output_size_attr2)
-        self.val_l2diffs, self.val_y_vectors, self.val_loss =  self.feed_forward(self.val_x, self.val_y)
-        self.val_acc = self.calc_accuracy(self.val_y, self.val_l2diffs)
+        self.val_gender, self.val_smile, self.val_glasses, self.val_pose = self.get_one_hot(self.val_attr)
 
+        val_fc_1 = self.shared_layer_output(self.val_x)
+        self.val_l2diffs, self.val_y_vectors, self.val_loss_FL =  self.feed_forward_FL(val_fc_1, self.val_y)
+        self.val_acc_FL = self.calc_accuracy_FL(self.val_y, self.val_l2diffs)
+        # Get losses and acc for attributes
+        self.val_y_conv_gender, self.val_loss_gender = self.feed_forward_attr(
+            val_fc_1, self.val_gender, self.W_fc2_gender, self.b_fc2_gender)
+        self.val_y_conv_smile, self.val_loss_smile = self.feed_forward_attr(
+            val_fc_1, self.val_smile, self.W_fc2_smile, self.b_fc2_smile)
+        self.val_y_conv_glasses, self.val_loss_glasses = self.feed_forward_attr(
+            val_fc_1, self.val_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
+        self.val_y_conv_pose, self.val_loss_pose = self.feed_forward_attr(
+            val_fc_1, self.val_pose, self.W_fc2_pose, self.b_fc2_pose)
+        self.val_acc_gender = self.calc_accuracy_attr(self.val_y_conv_gender, self.val_gender)
+        self.val_acc_smile = self.calc_accuracy_attr(self.val_y_conv_smile, self.val_smile)
+        self.val_acc_glasses = self.calc_accuracy_attr(self.val_y_conv_glasses, self.val_glasses)
+        self.val_acc_pose = self.calc_accuracy_attr(self.val_y_conv_pose, self.val_pose)
+
+
+        # Test comp graph
         self.test_x, self.test_y, self.test_attr = self.data.read_batch(self.batchSize, 2)
-        self.test_gender = tf.one_hot(self.test_attr[:,0], self.output_size_attr1)
-        self.test_smile = tf.one_hot(self.test_attr[:,1], self.output_size_attr1)
-        self.test_glasses = tf.one_hot(self.test_attr[:,2], self.output_size_attr1)
-        self.test_pose = tf.one_hot(self.test_attr[:,3], self.output_size_attr2)
-        self.test_l2diffs, self.test_y_vectors, self.test_loss =  self.feed_forward(self.test_x, self.test_y)
-        self.test_acc = self.calc_accuracy(self.test_y, self.test_l2diffs)
+        self.test_gender, self.test_smile, self.test_glasses, self.test_pose = self.get_one_hot(self.test_attr)
 
-        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
+        test_fc_1 = self.shared_layer_output(self.test_x)
+        self.test_l2diffs, self.test_y_vectors, self.test_loss_FL =  self.feed_forward_FL(test_fc_1, self.test_y)
+        self.test_acc_FL = self.calc_accuracy_FL(self.test_y, self.test_l2diffs)
+        # Get losses and acc for attributes
+        self.test_y_conv_gender, self.test_loss_gender = self.feed_forward_attr(
+            test_fc_1, self.test_gender, self.W_fc2_gender, self.b_fc2_gender)
+        self.test_y_conv_smile, self.test_loss_smile = self.feed_forward_attr(
+            test_fc_1, self.test_smile, self.W_fc2_smile, self.b_fc2_smile)
+        self.test_y_conv_glasses, self.test_loss_glasses = self.feed_forward_attr(
+            test_fc_1, self.test_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
+        self.test_y_conv_pose, self.test_loss_pose = self.feed_forward_attr(
+            test_fc_1, self.test_pose, self.W_fc2_pose, self.b_fc2_pose)
+        self.test_acc_gender = self.calc_accuracy_attr(self.test_y_conv_gender, self.test_gender)
+        self.test_acc_smile = self.calc_accuracy_attr(self.test_y_conv_smile, self.test_smile)
+        self.test_acc_glasses = self.calc_accuracy_attr(self.test_y_conv_glasses, self.test_glasses)
+        self.test_acc_pose = self.calc_accuracy_attr(self.test_y_conv_pose, self.test_pose)
+
+        # Calculate total loss function to be minimized by the training step
+        self.stop_FL = tf.placeholder(tf.bool)
+        self.stop_gender = tf.placeholder(tf.bool)
+        self.stop_smile = tf.placeholder(tf.bool)
+        self.stop_glasses = tf.placeholder(tf.bool)
+        self.stop_pose = tf.placeholder(tf.bool)
+
+        self.loss_FL_contr = tf.where(self.stop_FL, 0.0, self.train_loss_FL)
+        self.loss_gender_contr = tf.where(self.stop_gender, 0.0, self.train_loss_gender)
+        self.loss_smile_contr = tf.where(self.stop_smile, 0.0, self.train_loss_smile)
+        self.loss_glasses_contr = tf.where(self.stop_glasses, 0.0, self.train_loss_glasses)
+        self.loss_pose_contr = tf.where(self.stop_pose, 0.0, self.train_loss_pose)
+
+        self.total_train_loss = self.loss_FL_contr + self.lambda_gender * self.loss_gender_contr + \
+            self.lambda_smile * self.loss_smile_contr + self.lambda_glasses * self.loss_glasses_contr + \
+            self.lambda_pose * self.loss_pose_contr
+
+        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.total_train_loss)
 
     def trainNetwork(self, nrEpochs, keep_prob):
         sess = tf.Session()
@@ -161,48 +237,65 @@ class CNNSingle():
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
         steps = self.data.size[0]//self.batchSize
+        stop_FL = False
+        stop_gender = False
+        stop_smile = False
+        stop_glasses = False
+        stop_pose = False
         print("Number of steps per epoch: " + str(steps))
-        for epoch in range(1,nrEpochs):
-            avg_acc = np.zeros(5)
+        for epoch in range(1, nrEpochs+1):
+            train_mean_acc_FL = np.zeros(5)
+            train_mean_acc_attr = np.zeros(4)
             for i in range(steps):
-                _, loss, acc = sess.run([self.train_step, self.train_loss, self.train_acc],
-                    feed_dict={self.keep_prob:keep_prob})
-                if (i == 0 and epoch == 1):
-                    smooth_loss = loss
-                else:
-                    smooth_loss = 0.95 * smooth_loss + 0.05 * loss
-                avg_acc = np.add(avg_acc, acc)
-            val_acc = self.compute_accuracy_set(sess, 1)
-            avg_acc = np.divide(avg_acc, steps)
+                acc_attr = np.zeros(4)
+                _, acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run(
+                    [self.train_step, self.train_acc_FL, self.train_acc_gender, 
+                    self.train_acc_smile, self.train_acc_glasses, self.train_acc_pose],
+                    feed_dict={self.keep_prob:keep_prob, self.stop_FL:stop_FL, 
+                    self.stop_gender:stop_gender, self.stop_smile:stop_smile, 
+                    self.stop_glasses:stop_glasses, self.stop_pose:stop_pose})
+                train_mean_acc_FL = np.add(train_mean_acc_FL, acc_FL)
+                train_mean_acc_attr = np.add(train_mean_acc_attr, acc_attr)
+            train_mean_acc_FL = np.round(np.divide(train_mean_acc_FL, steps), 6)
+            train_mean_acc_attr = np.round(np.divide(train_mean_acc_attr, steps), 6)
+
+            val_acc_FL, val_acc_attr = self.compute_accuracy_set(sess, 1)
             print("Epoch: " + str(epoch))
-            print("Avg acc on training set: " + str(np.round(avg_acc,6)))
-            print("Avg acc on validation set: " + str(val_acc))
-            print("Smooth loss " + str(smooth_loss))
-            # if epoch >= 10:
-            #     self.testNetwork(sess)
+            print("FL mean acc on train set: " + str(train_mean_acc_FL))
+            print("Attributes mean acc on train set: " + str(train_mean_acc_attr))
+            print("FL acc on validation set: " + str(val_acc_FL))
+            print("Attributes acc on validation set: " + str(val_acc_attr))
         print("Training finished.")
         return sess
 
     def testNetwork(self, sess):
-        mean_acc = self.compute_accuracy_set(sess, 2)
-        print("Accuracy on test set: " + str(mean_acc))
-     
+        mean_acc_FL, mean_acc_attr = self.compute_accuracy_set(sess, 2)
+        print("FL acc on test set: " + str(mean_acc_FL))
+        print("Attributes acc on test set" + str(mean_acc_attr))
 
     def compute_accuracy_set(self, sess, cur_set): # set i = [training, validation testing]
-        mean_acc = np.zeros(5)
+        mean_acc_FL = np.zeros(5)
+        mean_acc_attr = np.zeros(4)
         steps = self.data.size[cur_set]//self.batchSize + 1
         for i in range(steps):
+            acc_attr = np.zeros(4)
             if(cur_set == 1): # evaluate accuracy on validation set
-                acc = sess.run([self.val_acc], feed_dict={self.keep_prob:1.0})[0]
+                acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.val_acc_FL, 
+                    self.val_acc_gender, self.val_acc_smile, self.val_glasses, self.val_acc_pose], 
+                    feed_dict={self.keep_prob:1.0})[0]
             elif(cur_set == 2):
-                acc = sess.run([self.test_acc], feed_dict={self.keep_prob:1.0})[0]
-            mean_acc = np.add(mean_acc, acc)
-        mean_acc = np.round(np.divide(mean_acc, steps), 6)
-        return mean_acc
+                acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run([self.test_acc_FL, 
+                    self.test_acc_gender, self.test_acc_smile, self.test_glasses, self.test_acc_pose], 
+                    feed_dict={self.keep_prob:1.0})[0]
+            mean_acc_FL = np.add(mean_acc_FL, acc_FL)
+            mean_acc_attr = np.add(mean_acc_attr, acc_attr)
+        mean_acc_FL = np.round(np.divide(mean_acc_FL, steps), 6)
+        mean_acc_attr = np.round(np.divide(mean_acc_attr, steps), 6)
+        return mean_acc_FL, mean_acc_attr
     
     def outputImages(self, sess):
         radius = 2
-        x, feature_vectors = sess.run([self.train_x, self.train_y_vectors],
+        x, feature_vectors = sess.run([self.test_x, self.test_y_vectors],
             feed_dict={self.keep_prob:1.0})
         for i in range(5):
             imgMat = x[i]
@@ -229,5 +322,5 @@ class CNNSingle():
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
 
-        output = sess.run(self.loss, feed_dict={self.keep_prob:1.0, self.training:True})
+        output = sess.run(self.train_acc_gender, feed_dict={self.keep_prob:1.0})
         print(output)
