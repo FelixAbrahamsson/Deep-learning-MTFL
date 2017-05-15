@@ -36,22 +36,16 @@ class CNNMulti():
         initial = tf.get_variable(name, shape=shape,
            initializer=tf.contrib.layers.xavier_initializer())
         return initial
-        # initial = tf.truncated_normal(shape, stddev=0.1)
-        # return tf.Variable(initial, name=name)
 
     def bias_variable(self, shape, name):
-        initial = tf.get_variable(name, shape=shape,
-           initializer=tf.contrib.layers.xavier_initializer())
-        return initial
-        # initial = tf.constant(0.1, shape=shape)
-        # return tf.Variable(initial, name=name)
+        initial = tf.constant(0.1, shape=shape)
+        return tf.Variable(initial, name=name)
 
     def conv2d(self, x, W):
         return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
     def max_pool_2x2(self, x):
-        return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME')
+        return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
     def shared_layer_output(self, x):
         h_conv1 = tf.nn.relu(self.conv2d(x, self.W_conv1)+self.b_conv1)
