@@ -27,9 +27,9 @@ class CNNSingle():
             self.output_size = 2
         self.create_comp_graph()
 
-    def weight_variable(self, shape):
-        initial = tf.truncated_normal(shape, stddev=0.1)
-        return tf.Variable(initial)
+    def weight_variable(self, shape, name):
+        w = tf.get_variable(name, shape=shape, initializer=tf.contrib.layers.xavier_initializer())
+        return w
 
     def bias_variable(self, shape):
         initial = tf.constant(0.1, shape=shape)
@@ -83,20 +83,20 @@ class CNNSingle():
     def initiate_net(self):
         # We have 3 input channels, rgb
         self.keep_prob = tf.placeholder(tf.float32)
-        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, self.conv1filters])
+        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, self.conv1filters], "w1_conv")
         self.b_conv1 = self.bias_variable([self.conv1filters])
 
-        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, self.conv2filters])
+        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, self.conv2filters], "w2_conv")
         self.b_conv2 = self.bias_variable([self.conv2filters])
 
         # 38x38 = 150/2/2 x 150/2/2
-        self.W_fc1 = self.weight_variable([38 * 38 * self.conv2filters, self.fc1size])
+        self.W_fc1 = self.weight_variable([38 * 38 * self.conv2filters, self.fc1size], "w1_fc")
         self.b_fc1 = self.bias_variable([self.fc1size])
 
-        self.W_fc2 = self.weight_variable([self.fc1size, self.output_size])
+        self.W_fc2 = self.weight_variable([self.fc1size, self.output_size], "w2_fc")
         self.b_fc2 = self.bias_variable([self.output_size])
 
-    def create_comp_graph(self):     
+    def create_comp_graph(self):
         self.initiate_net()    
 
         self.train_x, self.train_y, self.train_attr = self.data.read_batch(self.batchSize, 0)
