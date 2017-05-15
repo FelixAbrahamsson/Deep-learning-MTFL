@@ -28,7 +28,7 @@ class CNNSingle():
         self.create_comp_graph()
 
     def weight_variable(self, shape, name):
-        w = tf.get_variable(name, shape=shape, initializer=tf.contrib.layers.xavier_initializer()) 
+        w = tf.get_variable(name, shape=shape, initializer=tf.contrib.layers.xavier_initializer())
         return w
 
     def bias_variable(self, shape):
@@ -96,7 +96,7 @@ class CNNSingle():
         self.W_fc2 = self.weight_variable([self.fc1size, self.output_size], "w2_fc")
         self.b_fc2 = self.bias_variable([self.output_size])
 
-    def create_comp_graph(self):     
+    def create_comp_graph(self):
         self.initiate_net()    
 
         self.train_x, self.train_y, self.train_attr = self.data.read_batch(self.batchSize, 0)

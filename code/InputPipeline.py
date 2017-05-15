@@ -36,9 +36,8 @@ class InputPipeline():
         images_tensor = ops.convert_to_tensor(image_list, dtype=dtypes.string)
         landmark_tensor = ops.convert_to_tensor(landmark_list, dtype=dtypes.float32)
         attribute_tensor = ops.convert_to_tensor(attribute_list, dtype=dtypes.int32)
-        #produces an error when the number of epochs is exhausted
-        input_que = tf.train.slice_input_producer([image_list, landmark_list, attribute_list], num_epochs=None)
-        self.num_data = len(image_list)
+        input_que = tf.train.slice_input_producer([image_list[1:1000], landmark_list, attribute_list], num_epochs=None)
+        self.num_data = len(image_list[1:1000])
         return input_que
 
     def read_from_disk(self):
