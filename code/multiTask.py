@@ -3,6 +3,7 @@ import tensorflow as tf
 import math
 import os
 import time
+import random
 from PIL import Image
 from PIL import ImageDraw
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
@@ -31,13 +32,19 @@ class CNNMulti():
 
         self.create_comp_graph()
 
-    def weight_variable(self, shape):
-        initial = tf.truncated_normal(shape, stddev=0.1)
-        return tf.Variable(initial)
+    def weight_variable(self, shape, name):
+        initial = tf.get_variable(name, shape=shape,
+           initializer=tf.contrib.layers.xavier_initializer())
+        return initial
+        # initial = tf.truncated_normal(shape, stddev=0.1)
+        # return tf.Variable(initial, name=name)
 
-    def bias_variable(self, shape):
-        initial = tf.constant(0.1, shape=shape)
-        return tf.Variable(initial)
+    def bias_variable(self, shape, name):
+        initial = tf.get_variable(name, shape=shape,
+           initializer=tf.contrib.layers.xavier_initializer())
+        return initial
+        # initial = tf.constant(0.1, shape=shape)
+        # return tf.Variable(initial, name=name)
 
     def conv2d(self, x, W):
         return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
@@ -73,7 +80,6 @@ class CNNMulti():
 
     def get_loss_attr(self, y_, y, W_fc2, b_fc2):
         # y_ is the input from the first FC layer
-
         y_conv = tf.matmul(y_, W_fc2) + b_fc2
         loss = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
@@ -99,30 +105,30 @@ class CNNMulti():
     def initiate_net(self):
         # We have 3 input channels, rgb
         self.keep_prob = tf.placeholder(tf.float32)
-        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, self.conv1filters])
-        self.b_conv1 = self.bias_variable([self.conv1filters])
+        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, self.conv1filters], "W_c1")
+        self.b_conv1 = self.bias_variable([self.conv1filters], "b_c1")
 
-        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, self.conv2filters])
-        self.b_conv2 = self.bias_variable([self.conv2filters])
+        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, self.conv2filters], "W_c2")
+        self.b_conv2 = self.bias_variable([self.conv2filters], "b_c2")
 
         # 38x38 = 150/2/2 x 150/2/2
-        self.W_fc1 = self.weight_variable([38 * 38 * self.conv2filters, self.fc1size])
-        self.b_fc1 = self.bias_variable([self.fc1size])
+        self.W_fc1 = self.weight_variable([38 * 38 * self.conv2filters, self.fc1size], "W_fc1")
+        self.b_fc1 = self.bias_variable([self.fc1size], "b_fc1")
 
-        self.W_fc2_FL = self.weight_variable([self.fc1size, self.output_size_FL])
-        self.b_fc2_FL = self.bias_variable([self.output_size_FL])
+        self.W_fc2_FL = self.weight_variable([self.fc1size, self.output_size_FL], "W_fc2_FL")
+        self.b_fc2_FL = self.bias_variable([self.output_size_FL], "b_fc2_FL")
 
-        self.W_fc2_gender = self.weight_variable([self.fc1size, self.output_size_attr1])
-        self.b_fc2_gender = self.bias_variable([self.output_size_attr1])
+        self.W_fc2_gender = self.weight_variable([self.fc1size, self.output_size_attr1], "W_fc2_ge")
+        self.b_fc2_gender = self.bias_variable([self.output_size_attr1], "b_fc2_ge")
 
-        self.W_fc2_smile = self.weight_variable([self.fc1size, self.output_size_attr1])
-        self.b_fc2_smile = self.bias_variable([self.output_size_attr1])
+        self.W_fc2_smile = self.weight_variable([self.fc1size, self.output_size_attr1], "W_fc2_sm")
+        self.b_fc2_smile = self.bias_variable([self.output_size_attr1], "b_fc2_sm")
 
-        self.W_fc2_glasses = self.weight_variable([self.fc1size, self.output_size_attr1])
-        self.b_fc2_glasses = self.bias_variable([self.output_size_attr1])
+        self.W_fc2_glasses = self.weight_variable([self.fc1size, self.output_size_attr1], "W_fc2_gl")
+        self.b_fc2_glasses = self.bias_variable([self.output_size_attr1], "b_fc2_gl")
 
-        self.W_fc2_pose = self.weight_variable([self.fc1size, self.output_size_attr2])
-        self.b_fc2_pose = self.bias_variable([self.output_size_attr2])
+        self.W_fc2_pose = self.weight_variable([self.fc1size, self.output_size_attr2], "W_fc2_po")
+        self.b_fc2_pose = self.bias_variable([self.output_size_attr2], "b_fc2_po")
 
 
     def get_attributes_sparse(self, attr):
@@ -319,9 +325,13 @@ class CNNMulti():
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
 
-        output, ge, sm, gl, po = sess.run([self.train_loss_FL, self.train_loss_gender, self.train_loss_smile, self.train_loss_glasses, self.train_loss_pose], 
+        output = sess.run(self.train_pose, 
             feed_dict={self.keep_prob:1.0})
-        print(output)
+        # print(output)
+
+        fl, ge, sm, gl, po = sess.run([self.train_loss_FL, self.train_loss_gender, self.train_loss_smile, self.train_loss_glasses, self.train_loss_pose], 
+            feed_dict={self.keep_prob:1.0})
+        print(fl)
         print(ge)
         print(sm)
         print(gl)
