@@ -114,7 +114,6 @@ class CNNSingleAtt():
                 else:
                     smooth_loss = 0.95 * smooth_loss + 0.05 * loss
                 avg_acc += acc
-                print(acc)
             val_acc = self.compute_accuracy_set(sess, 1)
             avg_acc = avg_acc/steps
             print("Epoch: " + str(epoch))
