@@ -36,14 +36,14 @@ class InputPipeline():
         images_tensor = ops.convert_to_tensor(image_list, dtype=dtypes.string)
         landmark_tensor = ops.convert_to_tensor(landmark_list, dtype=dtypes.float32)
         attribute_tensor = ops.convert_to_tensor(attribute_list, dtype=dtypes.int32)
-        input_que = tf.train.slice_input_producer([image_list[1:1000], landmark_list, attribute_list], num_epochs=None)
-        self.num_data = len(image_list[1:1000])
+        input_que = tf.train.slice_input_producer([image_list, landmark_list, attribute_list], num_epochs=None)
+        self.num_data = len(image_list)
         return input_que
 
     def read_from_disk(self):
         input_que = self.get_input_que()
         file_contents = tf.read_file(input_que[0])
-        images = tf.image.decode_jpeg(file_contents, channels=3)/255
+        images = tf.image.decode_jpeg(file_contents, channels=3)/255.0
         #This line is needed since tf.train.batch needs to know the size of the tensor which tf.image.decode_jpeg strangley dosen't produce
         #causes an error for images with other sizes
         images.set_shape((150,150, 3))
