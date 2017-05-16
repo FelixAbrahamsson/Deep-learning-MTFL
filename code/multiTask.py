@@ -275,10 +275,6 @@ class CNNMulti():
                 train_mean_acc_attr = np.add(train_mean_acc_attr, acc_attr)
             train_mean_acc_FL = np.round(np.divide(train_mean_acc_FL, steps), 6)
             train_mean_acc_attr = np.round(np.divide(train_mean_acc_attr, steps), 6)
-            if epoch > 15:
-                stop_glasses = True
-            if epoch > 35:
-                stop_pose = True
 
             val_acc_FL, val_acc_attr, val_losses = self.compute_accuracy_set(sess, 1)
 
