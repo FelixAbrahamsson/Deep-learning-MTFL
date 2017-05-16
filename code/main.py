@@ -21,21 +21,38 @@ data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
 # sess = network.train_network(30, 1.0, True) # epochs, keep_prob
 # network.test_network(sess)
 # network.output_images(sess, "multi_es1_")
-# sess.close()
 
-for i in range(3,4):
-  print("======= RUNNING NETWORK "+str(i)+" ========")
-  network = CNNMulti(data, 50)
-  sess = network.train_network(30, 1.0, False) # epochs, keep_prob
-  network.test_network(sess)
-  network.output_images(sess, "multi_es"+str(i)+"_")
-  sess.close()
+import sys
+args = sys.arv
+trial_nr = int(args[0])
+network_type = int(args[1])
+if network_type == 0:
+  network = CNNSingle(data, 50, -1) #batch size, landmark
+elif network_type == 1:
+  network = CNNSingleAtt(data, 50, 1) #batch size, attribute
+elif network_type == 2:
+  network = CNNMulti(data, 50) #batch size
+else:
+  print("ERROR: INCORRECT NETWORK TYPE")
+
+sess = network.train_network(1, 1.0, False) # epochs, keep_prob
+network.test_network(sess)
+# network.output_images(sess, "multi_es"+str(trial_nr)+"_")
+sess.close()
+
+# for i in range(1,4):
+#   print("======= RUNNING NETWORK "+str(i)+" ========")
+#   network = CNNMulti(data, 50)
+#   sess = network.train_network(30, 1.0, False) # epochs, keep_prob
+#   network.test_network(sess)
+#   network.output_images(sess, "multi_es"+str(i)+"_")
+#   sess.close()
 
 
-for i in range(1,4):
-  print("======= RUNNING NETWORK "+str(i)+" ========")
-  network = CNNSingle(data, 50, -1)
-  sess = network.train_network(30, 1.0)
-  network.test_network(sess)
-  network.output_images(sess, "single"+str(i)+"_")
-  sess.close()
+# for i in range(1,4):
+#   print("======= RUNNING NETWORK "+str(i)+" ========")
+#   network = CNNSingle(data, 50, -1)
+#   sess = network.train_network(30, 1.0)
+#   network.test_network(sess)
+#   network.output_images(sess, "single"+str(i)+"_")
+#   sess.close()
