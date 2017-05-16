@@ -43,7 +43,7 @@ class InputPipeline():
     def read_from_disk(self):
         input_que = self.get_input_que()
         file_contents = tf.read_file(input_que[0])
-        images = tf.image.decode_jpeg(file_contents, channels=3)/255.0
+        images = tf.image.decode_jpeg(file_contents, channels=3)/255
         #This line is needed since tf.train.batch needs to know the size of the tensor which tf.image.decode_jpeg strangley dosen't produce
         #causes an error for images with other sizes
         images.set_shape((150,150, 3))
