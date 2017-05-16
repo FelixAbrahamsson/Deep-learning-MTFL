@@ -54,7 +54,7 @@ class CNNMulti():
     def early_stopping(self, lamb, train_loss_batch, val_loss, steps):
         scalar = steps*self.get_median(train_loss_batch)/(np.sum(train_loss_batch) - steps*self.get_median(train_loss_batch))
         scalar *= (val_loss[steps -1] - np.min(train_loss_batch)) / (lamb*np.min(train_loss_batch))
-        return scalar, scalar > 100
+        return scalar, scalar > 15*lamb
 
     def shared_layer_output(self, x):
         h_conv1 = tf.nn.relu(self.conv2d(x, self.W_conv1)+self.b_conv1)
@@ -233,7 +233,7 @@ class CNNMulti():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.total_train_loss)
 
-    def train_network(self, nrEpochs, keep_prob):
+    def train_network(self, nrEpochs, keep_prob, use_early_stopping):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
@@ -244,6 +244,7 @@ class CNNMulti():
         stop_smile = True
         stop_glasses = False
         stop_pose = False
+        # steps = 3
 
         print("Number of steps per epoch: " + str(steps))
         for epoch in range(1, nrEpochs + 1):
@@ -257,15 +258,11 @@ class CNNMulti():
             val_loss_pose = np.zeros(steps)
             for i in range(steps):
                 acc_attr = np.zeros(4)
-                _, acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run(
+                _, acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3], \
+                    train_loss_glasses[i], val_loss_glasses[i], train_loss_pose[i], val_loss_pose[i] = sess.run(
                     [self.train_step, self.train_acc_FL, self.train_acc_gender, 
-                    self.train_acc_smile, self.train_acc_glasses, self.train_acc_pose],
-                    feed_dict={self.keep_prob:keep_prob, self.stop_FL:stop_FL, 
-                    self.stop_gender:stop_gender, self.stop_smile:stop_smile, 
-                    self.stop_glasses:stop_glasses, self.stop_pose:stop_pose})
-
-                train_loss_glasses[i], val_loss_glasses[i], train_loss_pose[i], val_loss_pose[i]= sess.run(
-                    [self.train_loss_glasses, self.val_loss_glasses,
+                    self.train_acc_smile, self.train_acc_glasses, self.train_acc_pose,
+                    self.train_loss_glasses, self.val_loss_glasses,
                      self.train_loss_pose, self.val_loss_pose],
                     feed_dict={self.keep_prob:keep_prob, self.stop_FL:stop_FL, 
                     self.stop_gender:stop_gender, self.stop_smile:stop_smile, 
@@ -277,25 +274,27 @@ class CNNMulti():
             train_mean_acc_attr = np.round(np.divide(train_mean_acc_attr, steps), 6)
 
             val_acc_FL, val_acc_attr, val_losses = self.compute_accuracy_set(sess, 1)
-
-            #early stopping
-            if(stop_glasses == False):
-                s, stop_glasses = self.early_stopping(self.lambda_glasses, train_loss_glasses, val_loss_glasses, steps)
-                print("stopp glasses scalar = " + str(s))
-                if(stop_glasses):
-                    print("====================stoped glasses ========================")
-            if(stop_pose == False):
-                s, stop_pose = self.early_stopping(self.lambda_pose, train_loss_pose, val_loss_pose, steps)
-                print("stop pose scatar = " + str(s))
-                if(stop_pose):
-                    print("====================stoped pose========================")
-
             print("Epoch: " + str(epoch))
-            print("FL mean acc on train set: " + str(train_mean_acc_FL))
-            print("Attributes mean acc on train set: " + str(train_mean_acc_attr))
+
+            if use_early_stopping:
+                #early stopping
+                if(stop_glasses == False):
+                    s, stop_glasses = self.early_stopping(self.lambda_glasses, train_loss_glasses, val_loss_glasses, steps)
+                    # print("stop glasses scalar = " + str(s))
+                    if(stop_glasses):
+                        print("=================== Stopping glasses ====================")
+                if(stop_pose == False):
+                    s, stop_pose = self.early_stopping(self.lambda_pose, train_loss_pose, val_loss_pose, steps)
+                    # print("stop pose scalar = " + str(s))
+                    if(stop_pose):
+                        print("=================== Stopping pose =======================")
+
+            # print("FL mean acc on train set: " + str(train_mean_acc_FL))
+            # print("Attributes mean acc on train set: " + str(train_mean_acc_attr))
             print("FL acc on validation set: " + str(val_acc_FL))
             print("Attributes acc on validation set: " + str(val_acc_attr))
-            print("Losses on validation set (FL, ge, sm, gl, po): " + str(val_losses))
+            # print("Losses on validation set (FL, ge, sm, gl, po): " + str(val_losses))
+
         print("Training finished.")
         return sess
 
@@ -333,11 +332,11 @@ class CNNMulti():
         mean_losses = np.round(np.divide(mean_losses, steps), 6)
         return mean_acc_FL, mean_acc_attr, mean_losses
     
-    def output_images(self, sess):
+    def output_images(self, sess, name):
         radius = 2.0
         x, feature_vectors = sess.run([self.test_x, self.test_y_vectors],
             feed_dict={self.keep_prob:1.0})
-        for i in range(5):
+        for i in range(10):
             img_mat = x[i]
             img_mat = np.multiply(img_mat, 255.0) # Scale back up
             img_data = img_mat.reshape(150*150,3).astype(int)
@@ -351,7 +350,8 @@ class CNNMulti():
                 FL_y = coords[1]
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
                     fill = 'green', outline ='blue')
-            im.show()
+            # im.show()
+            im.save(name+str(i)+".jpg")
 
     def debug_network(self):
         sess = tf.Session()

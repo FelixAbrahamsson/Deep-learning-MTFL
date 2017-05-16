@@ -104,7 +104,7 @@ class CNNSingleAtt():
         sess.run(tf.global_variables_initializer())
         steps = self.data.size[0]//self.batchSize
         print("Number of steps per epoch: " + str(steps))
-        for epoch in range(1,nrEpochs):
+        for epoch in range(1, nrEpochs + 1):
             avg_acc = 0
             for i in range(steps):
                 _, loss, acc, conv = sess.run([self.train_step, self.train_loss, self.train_acc, self.train_attr_conv],
@@ -117,11 +117,9 @@ class CNNSingleAtt():
             val_acc = self.compute_accuracy_set(sess, 1)
             avg_acc = avg_acc/steps
             print("Epoch: " + str(epoch))
-            print("Avg acc on training set: " + str(np.round(avg_acc,6)))
+            # print("Avg acc on training set: " + str(np.round(avg_acc,6)))
             print("Avg acc on validation set: " + str(val_acc))
-            print("Smooth loss " + str(smooth_loss))
-            # if epoch >= 10:
-            #     self.testNetwork(sess)
+            # print("Smooth loss " + str(smooth_loss))
         print("Training finished.")
         return sess
 

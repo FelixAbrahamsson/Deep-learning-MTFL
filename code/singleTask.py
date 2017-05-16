@@ -120,7 +120,7 @@ class CNNSingle():
         sess.run(tf.global_variables_initializer())
         steps = self.data.size[0]//self.batchSize
         print("Number of steps per epoch: " + str(steps))
-        for epoch in range(1,nrEpochs):
+        for epoch in range(1, nrEpochs + 1):
             avg_acc = np.zeros(5)
             for i in range(steps):
                 _, loss, acc = sess.run([self.train_step, self.train_loss, self.train_acc],
@@ -133,11 +133,9 @@ class CNNSingle():
             val_acc = self.compute_accuracy_set(sess, 1)
             avg_acc = np.divide(avg_acc, steps)
             print("Epoch: " + str(epoch))
-            print("Avg acc on training set: " + str(np.round(avg_acc,6)))
+            # print("Avg acc on training set: " + str(np.round(avg_acc,6)))
             print("Avg acc on validation set: " + str(val_acc))
-            print("Smooth loss " + str(smooth_loss))
-            # if epoch >= 10:
-            #     self.testNetwork(sess)
+            # print("Smooth loss " + str(smooth_loss))
         print("Training finished.")
         return sess
 
@@ -158,11 +156,11 @@ class CNNSingle():
         mean_acc = np.round(np.divide(mean_acc, steps), 6)
         return mean_acc
     
-    def output_images(self, sess):
+    def output_images(self, sess, name):
         radius = 2
         x, feature_vectors = sess.run([self.train_x, self.train_y_vectors],
             feed_dict={self.keep_prob:1.0})
-        for i in range(5):
+        for i in range(10):
             img_mat = x[i]
             img_mat = np.multiply(img_mat, 255.0) # Scale back up
             img_data = img_mat.reshape(150*150,3).astype(int)
@@ -179,7 +177,8 @@ class CNNSingle():
                 FL_y = coords[1]
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
                     fill = 'green', outline ='blue')
-            im.show()
+            # im.show()
+            im.save(name+str(i)+".jpg")
 
     def debug_network(self):
         sess = tf.Session()
