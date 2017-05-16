@@ -20,15 +20,15 @@ class CNNMulti():
         self.fc1size = 1024
 
         self.output_size_FL = 10
-        self.output_size_attr1 = 2 # gender, glasses, smile
+        self.output_size_attr1 = 2 # gender, smile, glasses
         self.output_size_attr2 = 5 # head pose
 
         # These control how much the different attribute loss functions
         # contribute to the total loss
-        self.lambda_gender = 0.0
-        self.lambda_smile = 0.0
-        self.lambda_glasses = 5.0
-        self.lambda_pose = 5.0
+        self.lambda_gender = 3.0
+        self.lambda_smile = 3.0
+        self.lambda_glasses = 3.0
+        self.lambda_pose = 6.0
 
         self.create_comp_graph()
 
@@ -46,6 +46,15 @@ class CNNMulti():
 
     def max_pool_2x2(self, x):
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+    def get_median(self, lst):
+        return np.median(np.array(lst))
+
+    #Losses are vectors over the batch
+    def early_stopping(self, lamb, train_loss_batch, val_loss, steps):
+        scalar = steps*self.get_median(train_loss_batch)/(np.sum(train_loss_batch) - steps*self.get_median(train_loss_batch))
+        scalar *= (val_loss[steps -1] - np.min(train_loss_batch)) / (lamb*np.min(train_loss_batch))
+        return scalar, scalar > 100
 
     def shared_layer_output(self, x):
         h_conv1 = tf.nn.relu(self.conv2d(x, self.W_conv1)+self.b_conv1)
@@ -75,8 +84,8 @@ class CNNMulti():
     def get_loss_attr(self, y_, y, W_fc2, b_fc2):
         # y_ is the input from the first FC layer
         y_conv = tf.matmul(y_, W_fc2) + b_fc2
-        loss = tf.reduce_mean(
-                tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
+        loss_batch = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=y_conv)
+        loss = tf.reduce_mean(loss_batch)
         return y_conv, loss
 
     def calc_accuracy_FL(self, y, l2diffs):
@@ -146,12 +155,16 @@ class CNNMulti():
         # Get losses and acc for attributes
         self.train_y_conv_gender, self.train_loss_gender = self.get_loss_attr(
             train_fc_1, self.train_gender, self.W_fc2_gender, self.b_fc2_gender)
+
         self.train_y_conv_smile, self.train_loss_smile = self.get_loss_attr(
             train_fc_1, self.train_smile, self.W_fc2_smile, self.b_fc2_smile)
+
         self.train_y_conv_glasses, self.train_loss_glasses = self.get_loss_attr(
             train_fc_1, self.train_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
+
         self.train_y_conv_pose, self.train_loss_pose = self.get_loss_attr(
             train_fc_1, self.train_pose, self.W_fc2_pose, self.b_fc2_pose)
+
         self.train_acc_gender = self.calc_accuracy_attr(self.train_y_conv_gender, self.train_gender)
         self.train_acc_smile = self.calc_accuracy_attr(self.train_y_conv_smile, self.train_smile)
         self.train_acc_glasses = self.calc_accuracy_attr(self.train_y_conv_glasses, self.train_glasses)
@@ -172,7 +185,7 @@ class CNNMulti():
             val_fc_1, self.val_smile, self.W_fc2_smile, self.b_fc2_smile)
         self.val_y_conv_glasses, self.val_loss_glasses = self.get_loss_attr(
             val_fc_1, self.val_glasses, self.W_fc2_glasses, self.b_fc2_glasses)
-        self.val_y_conv_pose, self.val_loss_pose = self.get_loss_attr(
+        self.val_y_conv_pose ,self.val_loss_pose = self.get_loss_attr(
             val_fc_1, self.val_pose, self.W_fc2_pose, self.b_fc2_pose)
         self.val_acc_gender = self.calc_accuracy_attr(self.val_y_conv_gender, self.val_gender)
         self.val_acc_smile = self.calc_accuracy_attr(self.val_y_conv_smile, self.val_smile)
@@ -227,8 +240,8 @@ class CNNMulti():
         sess.run(tf.global_variables_initializer())
         steps = self.data.size[0]//self.batchSize
         stop_FL = False
-        stop_gender = False
-        stop_smile = False
+        stop_gender = True
+        stop_smile = True
         stop_glasses = False
         stop_pose = False
 
@@ -236,6 +249,12 @@ class CNNMulti():
         for epoch in range(1, nrEpochs + 1):
             train_mean_acc_FL = np.zeros(5)
             train_mean_acc_attr = np.zeros(4)
+
+            #for early stopping
+            train_loss_glasses = np.zeros(steps)
+            val_loss_glasses = np.zeros(steps)
+            train_loss_pose = np.zeros(steps)
+            val_loss_pose = np.zeros(steps)
             for i in range(steps):
                 acc_attr = np.zeros(4)
                 _, acc_FL, acc_attr[0], acc_attr[1], acc_attr[2], acc_attr[3] = sess.run(
@@ -244,6 +263,14 @@ class CNNMulti():
                     feed_dict={self.keep_prob:keep_prob, self.stop_FL:stop_FL, 
                     self.stop_gender:stop_gender, self.stop_smile:stop_smile, 
                     self.stop_glasses:stop_glasses, self.stop_pose:stop_pose})
+
+                train_loss_glasses[i], val_loss_glasses[i], train_loss_pose[i], val_loss_pose[i]= sess.run(
+                    [self.train_loss_glasses, self.val_loss_glasses,
+                     self.train_loss_pose, self.val_loss_pose],
+                    feed_dict={self.keep_prob:keep_prob, self.stop_FL:stop_FL, 
+                    self.stop_gender:stop_gender, self.stop_smile:stop_smile, 
+                    self.stop_glasses:stop_glasses, self.stop_pose:stop_pose})
+
                 train_mean_acc_FL = np.add(train_mean_acc_FL, acc_FL)
                 train_mean_acc_attr = np.add(train_mean_acc_attr, acc_attr)
             train_mean_acc_FL = np.round(np.divide(train_mean_acc_FL, steps), 6)
@@ -254,6 +281,19 @@ class CNNMulti():
                 stop_pose = True
 
             val_acc_FL, val_acc_attr, val_losses = self.compute_accuracy_set(sess, 1)
+
+            #early stopping
+            if(stop_glasses == False):
+                s, stop_glasses = self.early_stopping(self.lambda_glasses, train_loss_glasses, val_loss_glasses, steps)
+                print("stopp glasses scalar = " + str(s))
+                if(stop_glasses):
+                    print("====================stoped glasses ========================")
+            if(stop_pose == False):
+                s, stop_pose = self.early_stopping(self.lambda_pose, train_loss_pose, val_loss_pose, steps)
+                print("stop pose scatar = " + str(s))
+                if(stop_pose):
+                    print("====================stoped pose========================")
+
             print("Epoch: " + str(epoch))
             print("FL mean acc on train set: " + str(train_mean_acc_FL))
             print("Attributes mean acc on train set: " + str(train_mean_acc_attr))
@@ -325,12 +365,13 @@ class CNNMulti():
 
         output = sess.run(self.train_acc_pose, 
             feed_dict={self.keep_prob:1.0})
-        print(output)
 
-        # fl, ge, sm, gl, po = sess.run([self.train_loss_FL, self.train_loss_gender, self.train_loss_smile, self.train_loss_glasses, self.train_loss_pose], 
-        #     feed_dict={self.keep_prob:1.0})
-        # print(fl)
-        # print(ge)
-        # print(sm)
-        # print(gl)
-        # print(po)
+        # print(output)
+
+        fl, ge, sm, gl, po = sess.run([self.train_loss_batch_FL, self.train_loss_batch_gender, self.train_loss_batch_smile, self.train_loss_batch_glasses, self.train_loss_batch_pose], 
+            feed_dict={self.keep_prob:1.0})
+        print(fl)
+        print(ge)
+        print(sm)
+        print(gl)
+        print(po)
