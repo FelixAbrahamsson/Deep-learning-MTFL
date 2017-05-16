@@ -25,10 +25,10 @@ class CNNMulti():
 
         # These control how much the different attribute loss functions
         # contribute to the total loss
-        self.lambda_gender = 3.0
-        self.lambda_smile = 3.0
-        self.lambda_glasses = 3.0
-        self.lambda_pose = 3.0
+        self.lambda_gender = 0.0
+        self.lambda_smile = 0.0
+        self.lambda_glasses = 5.0
+        self.lambda_pose = 5.0
 
         self.create_comp_graph()
 
@@ -248,6 +248,10 @@ class CNNMulti():
                 train_mean_acc_attr = np.add(train_mean_acc_attr, acc_attr)
             train_mean_acc_FL = np.round(np.divide(train_mean_acc_FL, steps), 6)
             train_mean_acc_attr = np.round(np.divide(train_mean_acc_attr, steps), 6)
+            if epoch > 15:
+                stop_glasses = True
+            if epoch > 35:
+                stop_pose = True
 
             val_acc_FL, val_acc_attr, val_losses = self.compute_accuracy_set(sess, 1)
             print("Epoch: " + str(epoch))
@@ -319,14 +323,14 @@ class CNNMulti():
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
 
-        output = sess.run(self.train_pose, 
+        output = sess.run(self.train_acc_pose, 
             feed_dict={self.keep_prob:1.0})
-        # print(output)
+        print(output)
 
-        fl, ge, sm, gl, po = sess.run([self.train_loss_FL, self.train_loss_gender, self.train_loss_smile, self.train_loss_glasses, self.train_loss_pose], 
-            feed_dict={self.keep_prob:1.0})
-        print(fl)
-        print(ge)
-        print(sm)
-        print(gl)
-        print(po)
+        # fl, ge, sm, gl, po = sess.run([self.train_loss_FL, self.train_loss_gender, self.train_loss_smile, self.train_loss_glasses, self.train_loss_pose], 
+        #     feed_dict={self.keep_prob:1.0})
+        # print(fl)
+        # print(ge)
+        # print(sm)
+        # print(gl)
+        # print(po)
