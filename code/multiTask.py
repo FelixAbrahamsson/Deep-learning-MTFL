@@ -10,9 +10,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 
 class CNNMulti():
 
-    def __init__(self, data, batchSize):
+    def __init__(self, data, printing_data, batchSize):
 
         self.data = data
+        self.printing_data = printing_data
         self.batchSize = batchSize
         self.f_size = 5 # receptive field size
         self.conv1filters = 16 # nr of output channels from conv layer 1
@@ -233,6 +234,11 @@ class CNNMulti():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.total_train_loss)
 
+        #For printing images
+        self.print_x, self.print_y, _ = self.printing_data.read_batch_unshuffled(10, 2)
+        print_fc_1 = self.shared_layer_output(self.print_x)
+        _, self.print_y_vectors, _ = self.get_loss_FL(print_fc_1, self.print_y)
+
     def train_network(self, nrEpochs, keep_prob, use_early_stopping):
         sess = tf.Session()
         coord = tf.train.Coordinator()
@@ -244,7 +250,6 @@ class CNNMulti():
         stop_smile = True
         stop_glasses = False
         stop_pose = False
-        # steps = 3
 
         print("Number of steps per epoch: " + str(steps))
         for epoch in range(1, nrEpochs + 1):
@@ -333,8 +338,12 @@ class CNNMulti():
         return mean_acc_FL, mean_acc_attr, mean_losses
     
     def output_images(self, sess, name):
+        pics_folder = "saved_pics/"
+        if not os.path.exists(pics_folder):
+            os.makedirs(pics_folder)
+
         radius = 2.0
-        x, feature_vectors = sess.run([self.test_x, self.test_y_vectors],
+        x, feature_vectors = sess.run([self.print_x, self.print_y_vectors],
             feed_dict={self.keep_prob:1.0})
         for i in range(10):
             img_mat = x[i]
@@ -351,7 +360,7 @@ class CNNMulti():
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
                     fill = 'green', outline ='blue')
             # im.show()
-            im.save(name+str(i)+".jpg")
+            im.save(pics_folder+name+str(i)+".jpg")
 
     def debug_network(self):
         sess = tf.Session()

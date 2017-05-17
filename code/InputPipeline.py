@@ -36,7 +36,7 @@ class InputPipeline():
         images_tensor = ops.convert_to_tensor(image_list, dtype=dtypes.string)
         landmark_tensor = ops.convert_to_tensor(landmark_list, dtype=dtypes.float32)
         attribute_tensor = ops.convert_to_tensor(attribute_list, dtype=dtypes.int32)
-        input_que = tf.train.slice_input_producer([image_list, landmark_list, attribute_list], num_epochs=None)
+        input_que = tf.train.slice_input_producer([image_list, landmark_list, attribute_list], shuffle=False, num_epochs=None)
         self.num_data = len(image_list)
         return input_que
 
@@ -56,13 +56,13 @@ class InputPipeline():
 
 class DataReader():
     def __init__(self, path, info):
-    	self.pipe = []
-    	self.size = []
-    	self.data = []
-    	for i in range(3):
-    		self.pipe.append(InputPipeline(path, info[i]))
-    		self.data.append(self.pipe[i].read_from_disk())
-    		self.size.append(self.pipe[i].num_data)
+        self.pipe = []
+        self.size = []
+        self.data = []
+        for i in range(3):
+            self.pipe.append(InputPipeline(path, info[i]))
+            self.data.append(self.pipe[i].read_from_disk())
+            self.size.append(self.pipe[i].num_data)
 
     def read_batch(self, batch_size, set): #set = 0 = training, set = 1 = validation, set = 2 = testing
         min_after_dequeue = 1000
@@ -70,5 +70,12 @@ class DataReader():
         image_batch, landmark_batch, attribute_batch= tf.train.shuffle_batch(
             self.data[set], batch_size=batch_size, capacity=capacity,
             min_after_dequeue=min_after_dequeue, num_threads=3)
+        return image_batch, landmark_batch, attribute_batch
+
+    def read_batch_unshuffled(self, batch_size, set): #set = 0 = training, set = 1 = validation, set = 2 = testing
+        min_after_dequeue = 1000
+        capacity = min_after_dequeue + 3 * batch_size
+        image_batch, landmark_batch, attribute_batch= tf.train.batch(
+            self.data[set], batch_size=batch_size, capacity=capacity)
         return image_batch, landmark_batch, attribute_batch
     

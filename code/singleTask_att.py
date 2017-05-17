@@ -4,7 +4,6 @@ import math
 import os
 import time
 from PIL import Image
-from PIL import ImageDraw
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 
 class CNNSingleAtt():
@@ -97,7 +96,7 @@ class CNNSingleAtt():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
-    def train_network(self, nrEpochs, keep_prob):
+    def train_network(self, nrEpochs, keep_prob, dummyVar):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)

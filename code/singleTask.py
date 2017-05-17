@@ -9,11 +9,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 
 class CNNSingle():
 
-    def __init__(self, data, batchSize, landmark):
+    def __init__(self, data, printing_data, batchSize, landmark):
         # landmark values:
         # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
 
         self.data = data
+        self.printing_data = printing_data
         self.landmark = landmark
         self.batchSize = batchSize
         self.f_size = 5 # receptive field size
@@ -113,7 +114,12 @@ class CNNSingle():
 
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
-    def train_network(self, nrEpochs, keep_prob):
+        #For printing images
+        self.print_x, self.print_y, _ = self.printing_data.read_batch_unshuffled(10, 2)
+        _, self.print_y_vectors, _  = self.feed_forward(self.print_x, self.print_y)
+
+
+    def train_network(self, nrEpochs, keep_prob, dummyVar):
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
@@ -157,8 +163,12 @@ class CNNSingle():
         return mean_acc
     
     def output_images(self, sess, name):
+        pics_folder = "saved_pics/"
+        if not os.path.exists(pics_folder):
+            os.makedirs(pics_folder)
+        
         radius = 2
-        x, feature_vectors = sess.run([self.train_x, self.train_y_vectors],
+        x, feature_vectors = sess.run([self.print_x, self.print_y_vectors],
             feed_dict={self.keep_prob:1.0})
         for i in range(10):
             img_mat = x[i]
@@ -178,7 +188,7 @@ class CNNSingle():
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
                     fill = 'green', outline ='blue')
             # im.show()
-            im.save(name+str(i)+".jpg")
+            im.save(pics_folder+name+str(i)+".jpg")
 
     def debug_network(self):
         sess = tf.Session()
