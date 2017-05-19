@@ -4,7 +4,6 @@ from InputPipeline import DataReader
 from singleTask import CNNSingle
 from singleTask_att import CNNSingleAtt
 from multiTask import CNNMulti
-import sys
 
 args = sys.argv
 trial_nr = int(args[1])
