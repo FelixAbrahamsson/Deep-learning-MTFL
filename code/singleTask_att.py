@@ -9,39 +9,45 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # 1:Info, 2:Warning, 3:Error
 class CNNSingleAtt():
 
     def __init__(self, data, batchSize, attribute):
-        # landmark values:
-        # -1:all 0:l_eye 1:r_eye 2:nose 3:l_mouth_corner 4:r_mouth_corner
+        # attribute values:
+        # 0:gender, 1:smiling, 2:glasses, 3:head_pose
 
-        self.data = data
-        self.batchSize = batchSize
-        self.attribute = attribute
+        self.data = data # The dataset
+        self.batchSize = batchSize # The mini-batch size for training/testing
+        self.attribute = attribute 
         self.f_size = 5 # receptive field size
         self.conv1filters = 16 # nr of output channels from conv layer 1
         self.conv2filters = self.conv1filters*2 # nr of output channels from conv layer 2
-        self.fc1size = 1024
+        self.fc1size = 1024 # Output size of the first fully connected layer
 
         if self.attribute < 3:
-            self.output_size = 2
+            self.output_size = 2 # gender, smiling and glasses have True/False labels
         else:
-            self.output_size = 5
+            self.output_size = 5 # head pose has 5 labels
         self.create_comp_graph()
 
     def weight_variable(self, shape, name):
-        w = tf.get_variable(name, shape=shape, initializer=tf.contrib.layers.xavier_initializer()) 
+        # Helper function to create weight variables with Xavier initialization
+        w = tf.get_variable(name, shape=shape,
+           initializer=tf.contrib.layers.xavier_initializer())
         return w
 
     def bias_variable(self, shape):
+        # Helper function to create bias variables, initialized slightly positive
         initial = tf.constant(0.1, shape=shape)
         return tf.Variable(initial)
 
     def conv2d(self, x, W):
+        # Helper function to create a conv layer
         return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
     def max_pool_2x2(self, x):
+        # Helper function to create a max pooling layer
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME')
 
     def feed_forward(self, x, y):
+        # Constructs the network, returns the loss and output from the last FC layer
         h_conv1 = tf.nn.relu(self.conv2d(x, self.W_conv1)+self.b_conv1)
         h_pool1 = self.max_pool_2x2(h_conv1)
         
@@ -56,17 +62,21 @@ class CNNSingleAtt():
         return y_conv, loss
 
     def calc_accuracy(self, y, y_conv):
+        # Returns the accuracy of the network
         correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y,1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         return accuracy
 
     def initiate_net(self):
+        # Initiates the weights, biases and other variables
         # We have 3 input channels, rgb
         self.keep_prob = tf.placeholder(tf.float32)
-        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, self.conv1filters], "w1_conv")
+        self.W_conv1 = self.weight_variable([self.f_size, self.f_size, 3, 
+            self.conv1filters], "w1_conv")
         self.b_conv1 = self.bias_variable([self.conv1filters])
 
-        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, self.conv2filters], "w2_conv")
+        self.W_conv2 = self.weight_variable([self.f_size, self.f_size, self.conv1filters, 
+            self.conv2filters], "w2_conv")
         self.b_conv2 = self.bias_variable([self.conv2filters])
 
         # 38x38 = 150/2/2 x 150/2/2
@@ -77,18 +87,22 @@ class CNNSingleAtt():
         self.b_fc2 = self.bias_variable([self.output_size])
 
     def create_comp_graph(self):     
+        # Constructs the computational graph for training, testing and validation
         self.initiate_net()    
 
+        # Training comp graph
         self.train_x, _ , self.train_attr = self.data.read_batch(self.batchSize, 0)
         self.train_attr = tf.one_hot(self.train_attr[:,self.attribute], self.output_size)
         self.train_attr_conv, self.train_loss =  self.feed_forward(self.train_x, self.train_attr)
         self.train_acc = self.calc_accuracy(self.train_attr, self.train_attr_conv)
 
+        # Validation comp graph
         self.val_x, _ , self.val_attr = self.data.read_batch(self.batchSize, 1)
         self.val_attr = tf.one_hot(self.val_attr[:,self.attribute], self.output_size)
         self.val_attr_conv, self.val_loss =  self.feed_forward(self.val_x, self.val_attr)
         self.val_acc = self.calc_accuracy(self.val_attr, self.val_attr_conv)
 
+        # Testing comp graph
         self.test_x, _, self.test_attr = self.data.read_batch(self.batchSize, 2)
         self.test_attr = tf.one_hot(self.test_attr[:,self.attribute], self.output_size)
         self.test_attr_conv, self.test_loss =  self.feed_forward(self.test_x, self.test_attr)
@@ -97,21 +111,25 @@ class CNNSingleAtt():
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
     def train_network(self, nrEpochs, keep_prob, dummyVar):
+        # Start a session, start input queues, initialize variables
         sess = tf.Session()
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess= sess, coord=coord)
         sess.run(tf.global_variables_initializer())
         steps = self.data.size[0]//self.batchSize
+
         print("Number of steps per epoch: " + str(steps))
         for epoch in range(1, nrEpochs + 1):
             avg_acc = 0
             for i in range(steps):
-                _, loss, acc, conv = sess.run([self.train_step, self.train_loss, self.train_acc, self.train_attr_conv],
-                    feed_dict={self.keep_prob:keep_prob})
+                # Perform a training step, get accuracy
+                _, loss, acc, conv = sess.run([self.train_step, self.train_loss, self.train_acc, 
+                    self.train_attr_conv], feed_dict={self.keep_prob:keep_prob})
                 if (i == 0 and epoch == 1):
                     smooth_loss = loss
                 else:
                     smooth_loss = 0.95 * smooth_loss + 0.05 * loss
+                # Maintain an avg of training acc over the epoch
                 avg_acc += acc
             val_acc = self.compute_accuracy_set(sess, 1)
             avg_acc = avg_acc/steps
@@ -123,11 +141,13 @@ class CNNSingleAtt():
         return sess
 
     def test_network(self, sess):
+        # Computes the acc on the test set
         mean_acc = self.compute_accuracy_set(sess, 2)
         print("Accuracy on test set: " + str(mean_acc))
      
 
     def compute_accuracy_set(self, sess, cur_set): # set i = [training, validation testing]
+        # Returns the acc and loss of a specified dataset
         mean_acc = 0
         steps = self.data.size[cur_set]//self.batchSize + 1
         for i in range(steps):
