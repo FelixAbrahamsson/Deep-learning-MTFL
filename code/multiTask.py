@@ -258,7 +258,7 @@ class CNNMulti():
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.total_train_loss)
 
         # Comp graph for printing images
-        self.print_x, self.print_y, _ = self.printing_data.read_batch_unshuffled(50, 2)
+        self.print_x, self.print_y, _ = self.printing_data.read_batch_unshuffled(50, 0)
         print_fc_1 = self.shared_layer_output(self.print_x)
         _, self.print_y_vectors, _ = self.get_loss_FL(print_fc_1, self.print_y)
 

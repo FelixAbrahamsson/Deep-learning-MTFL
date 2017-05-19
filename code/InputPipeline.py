@@ -61,17 +61,17 @@ class InputPipeline():
 class DataReader():
     #Creates a data reader with a training validation and testing set defined in info
     #shuffle = True shuffles the entire data set when read from disk
-    def __init__(self, path, info, suffle = True):
+    def __init__(self, path, info, shuffle = True):
         self.pipe = []
         self.size = []
         self.data = []
-        for i in range(3):
+        for i in range(len(info)):
             self.pipe.append(InputPipeline(path, info[i]))
-            self.data.append(self.pipe[i].read_from_disk())
+            self.data.append(self.pipe[i].read_from_disk(shuffle))
             self.size.append(self.pipe[i].num_data)
 
-    #Reads a shuffled batch from the specified dataset
-    def read_batch(self, batch_size, set): #set = 0 = training, set = 1 = validation, set = 2 = testing
+    #Reads a shuffled batch from the specified dataset defined in info
+    def read_batch(self, batch_size, set): 
         min_after_dequeue = 1000
         capacity = min_after_dequeue + 3 * batch_size
         image_batch, landmark_batch, attribute_batch= tf.train.shuffle_batch(
@@ -79,8 +79,8 @@ class DataReader():
             min_after_dequeue=min_after_dequeue, num_threads=3)
         return image_batch, landmark_batch, attribute_batch
 
-    #reads a unshuffled batch for the specified dataset
-    def read_batch_unshuffled(self, batch_size, set): #set = 0 = training, set = 1 = validation, set = 2 = testing
+    #reads a unshuffled batch for the specified dataset defined in info
+    def read_batch_unshuffled(self, batch_size, set):
         min_after_dequeue = 1000
         capacity = min_after_dequeue + 3 * batch_size
         image_batch, landmark_batch, attribute_batch= tf.train.batch(

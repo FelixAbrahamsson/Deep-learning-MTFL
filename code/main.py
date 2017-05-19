@@ -26,7 +26,7 @@ if use_es == 1:
 
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
 data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
-print_data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
+print_data = DataReader(dataFolder, ["testing.txt"], shuffle = False)
 
 if network_type == 0:
   net_str = "single"
@@ -46,7 +46,7 @@ if use_es == 1:
   net_str += "_es"
 
 print("====== "+str(net_str)+" network, trial "+str(trial_nr)+" ========")
-
+network = CNNMulti(data, print_data, 50) #batch size
 sess = network.train_network(30, 1.0, bool(use_es)) # epochs, keep_prob, use_early_stopping
 network.test_network(sess)
 if network_type != 1:
@@ -56,17 +56,17 @@ sess.close()
 
 ### Just to run the network without command line inputs
 # train_txt = "training.txt"
-# train_txt = "aug_training.txt"
+# # train_txt = "aug_training.txt"
 
 # dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
 # data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
-# print_data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
+# print_data = DataReader(dataFolder, ["testing.txt"])
 
 # network = CNNSingle(data, print_data, 50, -1) #batch size, landmark
-# network = CNNSingleAtt(data, 50, 1) #batch size, attribute
-# network = CNNMulti(data, print_data, 50) #batch size
+# # network = CNNSingleAtt(data, 50, 1) #batch size, attribute
+# #network = CNNMulti(data, print_data, 50) #batch size
 
-# network.debug_network()
-# sess = network.train_network(1, 1.0, True) # epochs, keep_prob
+# # network.debug_network()
+# sess = network.train_network(1, 1.0, False) # epochs, keep_prob
 # network.test_network(sess)
 # network.output_images(sess, "multi_es1_")
