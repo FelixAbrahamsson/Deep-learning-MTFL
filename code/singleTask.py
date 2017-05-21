@@ -133,7 +133,7 @@ class CNNSingle():
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.train_loss)
 
         # Comp graph for printing images
-        self.print_x, self.print_y, _ = self.printing_data.read_batch_unshuffled(50, 2)
+        self.print_x, self.print_y, _ = self.printing_data.read_batch_unshuffled(50, 0)
         _, self.print_y_vectors, _  = self.feed_forward(self.print_x, self.print_y)
 
 
@@ -213,7 +213,6 @@ class CNNSingle():
                 FL_y = coords[1]
                 draw.ellipse((FL_x-radius, FL_y-radius, FL_x+radius, FL_y+radius), 
                     fill = 'green', outline ='blue')
-            # im.show()
             im.save(pics_folder+name+str(i)+".jpg")
 
     def debug_network(self):

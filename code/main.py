@@ -26,7 +26,7 @@ if use_es == 1:
 
 dataFolder = os.path.abspath(os.path.join("./", os.pardir)+"/MTFL")
 data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
-print_data = DataReader(dataFolder, [train_txt, "validation.txt", "testing.txt"])
+print_data = DataReader(dataFolder, ["testing.txt"], shuffle = False)
 
 if network_type == 0:
   net_str = "single"
@@ -47,9 +47,8 @@ if use_es == 1:
 
 print("====== "+str(net_str)+" network, trial "+str(trial_nr)+" ========")
 
-sess = network.train_network(20, 1.0, bool(use_es)) # epochs, keep_prob, use_early_stopping
+sess = network.train_network(30, 1.0, bool(use_es)) # epochs, keep_prob, use_early_stopping
 network.test_network(sess)
 if network_type != 1:
   network.output_images(sess, net_str+str(trial_nr)+"_")
 sess.close()
-
