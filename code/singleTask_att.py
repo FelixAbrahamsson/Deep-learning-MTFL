@@ -58,7 +58,11 @@ class CNNSingleAtt():
 
         h_fc1_drop = tf.nn.dropout(h_fc1, self.keep_prob)
         y_conv = tf.matmul(h_fc1_drop, self.W_fc2) + self.b_fc2
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
+        cross_entr = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=y_conv))
+        lambda_reg = 0.01
+        reg = lambda_reg*(tf.nn.l2_loss(self.W_conv1) + tf.nn.l2_loss(self.W_conv2) + 
+            tf.nn.l2_loss(self.W_fc1) + tf.nn.l2_loss(self.W_fc2))
+        loss = cross_entr + reg
         return y_conv, loss
 
     def calc_accuracy(self, y, y_conv):
@@ -134,7 +138,7 @@ class CNNSingleAtt():
             val_acc = self.compute_accuracy_set(sess, 1)
             avg_acc = avg_acc/steps
             print("Epoch: " + str(epoch))
-            # print("Avg acc on training set: " + str(np.round(avg_acc,6)))
+            print("Avg acc on training set: " + str(np.round(avg_acc,6)))
             print("Avg acc on validation set: " + str(val_acc))
             # print("Smooth loss " + str(smooth_loss))
         print("Training finished.")

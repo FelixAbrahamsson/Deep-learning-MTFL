@@ -345,7 +345,7 @@ class CNNMulti():
         mean_losses = np.zeros(5)
         mean_acc_FL = np.zeros(5)
         mean_acc_attr = np.zeros(4)
-        steps = self.data.size[cur_set]//self.batchSize
+        steps = self.data.size[cur_set]//self.batchSize + 1
         for i in range(steps):
             acc_attr = np.zeros(4)
             losses = np.zeros(5)
